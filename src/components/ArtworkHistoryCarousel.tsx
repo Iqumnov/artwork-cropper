@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, Download, Trash2, Clock } from 'lucide-react'
+import { Trash2, Download, Clock } from 'lucide-react'
 import { HistoryArtwork } from '../lib/history-storage'
 
 interface ArtworkHistoryCarouselProps {
@@ -22,7 +22,7 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
   const handleDownload = (item: HistoryArtwork) => {
     const a = document.createElement('a')
     a.href = item.dataUrl
-    a.download = `${item.title.replace(/\s+/g, '_')}_${item.id.slice(-6)}.jpg`
+    a.download = `artwork_${item.id.slice(-6)}.jpg`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -30,10 +30,10 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
 
   const formatTime = (ts: number) => {
     const diff = Date.now() - ts
-    if (diff < 60000) return 'Just now'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
-    return new Date(ts).toLocaleDateString()
+    if (diff < 60000) return 'Только что'
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч назад`
+    return new Date(ts).toLocaleDateString('ru-RU')
   }
 
   return (
@@ -43,23 +43,23 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
         <div className="flex items-center gap-1.5 text-[#0f0b0c]">
           <Clock className="w-3.5 h-3.5 text-[#565051]" />
           <span className="text-xs font-normal tracking-wider uppercase">
-            Edit History ({items.length})
+            История изменений ({items.length})
           </span>
         </div>
 
         <button
           onClick={onClearAll}
           className="flex items-center gap-1 text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-2 py-0.5 border border-transparent hover:border-[#e3dbdc]"
-          title="Clear all history"
+          title="Очистить всю историю"
         >
           <Trash2 className="w-3 h-3" />
-          <span>Clear All</span>
+          <span>Очистить всё</span>
         </button>
       </div>
 
       {/* Horizontal Carousel */}
-      <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-        {items.map((item, index) => {
+      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
+        {items.map((item) => {
           const aspectRatio = item.width && item.height ? item.width / item.height : 1
           const calculatedWidth = Math.max(70, Math.min(180, Math.round(90 * aspectRatio)))
 
@@ -73,7 +73,7 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
                 width: `${calculatedWidth}px`,
                 minWidth: `${calculatedWidth}px`
               }}
-              title="Click to re-edit this artwork"
+              title="Нажмите для повторного редактирования"
             >
               <img
                 src={item.dataUrl}
@@ -82,22 +82,22 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
                 loading="lazy"
               />
 
-              {/* Timestamp Badge */}
-              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#faf8f8]/90 border border-[#e3dbdc] text-[9px] font-mono text-[#0f0b0c] pointer-events-none">
-                {index === 0 ? 'Latest' : formatTime(item.timestamp)}
+              {/* Timestamp Badge (No 'Latest' tag) */}
+              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#faf8f8]/95 border border-[#e3dbdc] text-[9px] font-mono text-[#0f0b0c] pointer-events-none">
+                {formatTime(item.timestamp)}
               </div>
 
-              {/* Delete Button */}
+              {/* Delete Button (Trash2 Icon) */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   onDelete(item.id)
                 }}
-                className="absolute top-1 right-1 text-[#0f0b0c] bg-[#faf8f8]/90 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#34292a] hover:text-[#faf8f8] p-1 transition-colors z-10"
-                title="Delete artwork from history"
+                className="absolute top-1 right-1 text-[#565051] bg-[#faf8f8]/95 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#34292a] hover:text-[#faf8f8] p-1 transition-colors z-10"
+                title="Удалить из истории"
               >
-                <X className="w-3 h-3" />
+                <Trash2 className="w-3 h-3" />
               </button>
 
               {/* Download Button */}
@@ -107,8 +107,8 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
                   e.stopPropagation()
                   handleDownload(item)
                 }}
-                className="absolute bottom-1 right-1 text-[#0f0b0c] bg-[#faf8f8]/90 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#0f0b0c] hover:text-[#faf8f8] p-1 transition-colors z-10"
-                title="Download artwork"
+                className="absolute bottom-1 right-1 text-[#565051] bg-[#faf8f8]/95 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#0f0b0c] hover:text-[#faf8f8] p-1 transition-colors z-10"
+                title="Скачать изображение"
               >
                 <Download className="w-3 h-3" />
               </button>

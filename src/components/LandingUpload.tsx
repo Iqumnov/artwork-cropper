@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Upload, Camera, Sparkles, Sliders, Crop, Loader2 } from 'lucide-react'
+import { Upload, Camera, Loader2 } from 'lucide-react'
 import { CameraCaptureModal } from './CameraCaptureModal'
 import { generateSampleArtwork } from '../lib/sample-images'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
@@ -154,7 +154,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       {isProcessing && (
         <div className="fixed inset-0 z-50 bg-[#faf8f8]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 border border-[#e3dbdc]">
           <Loader2 className="w-8 h-8 text-[#0f0b0c] animate-spin" />
-          <span className="text-base text-[#565051] font-normal">Processing image...</span>
+          <span className="text-base text-[#565051] font-normal">Обработка изображения...</span>
         </div>
       )}
 
@@ -176,22 +176,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
         className="hidden"
       />
 
-      {/* Top action row without any logo or header */}
-      <div className="w-full max-w-2xl mx-auto flex items-center justify-between pb-2">
-        <div className="text-2xl font-heading text-[#0f0b0c]">
-          Studio
-        </div>
-        <button
-          onClick={handleCameraClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent text-[#0f0b0c] text-sm transition-colors cursor-pointer"
-          title="Take photo with camera"
-        >
-          <Camera className="w-3.5 h-3.5 text-[#565051]" />
-          <span>Camera</span>
-        </button>
-      </div>
-
-      {/* Main Upload Dropzone Area */}
+      {/* Main Upload Dropzone Area (No second camera button in header) */}
       <main className="flex-1 flex flex-col justify-center items-center max-w-2xl w-full mx-auto my-auto py-4 gap-4">
         <div
           onDragOver={handleDragOver}
@@ -201,7 +186,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
           className={`w-full group cursor-pointer relative p-8 sm:p-12 transition-all duration-200 border flex flex-col items-center justify-center text-center ${
             isDragging
               ? 'border-[#34292a] bg-[#e3dbdc]/40'
-              : 'border-[#e3dbdc] hover:border-[#34292a] bg-[#ffffff]/60 hover:bg-[#ffffff]'
+              : 'border-[#e3dbdc] hover:border-[#34292a] bg-white/70 hover:bg-white'
           }`}
         >
           {/* Icon */}
@@ -210,10 +195,10 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
           </div>
 
           <h2 className="text-xl sm:text-2xl font-normal text-[#0f0b0c] mb-2 font-body tracking-tight">
-            Drop artwork or document here
+            Перетащите изображение или документ сюда
           </h2>
           <p className="text-sm text-[#565051] max-w-md mb-6 leading-relaxed">
-            Select from library, capture with camera, or paste from clipboard (JPG, PNG, HEIC, WebP, AVIF, TIFF)
+            Выберите файл из галереи, сделайте снимок на камеру или вставьте из буфера (JPG, PNG, HEIC, WebP, AVIF, TIFF)
           </p>
 
           <div className="flex items-center gap-3">
@@ -225,7 +210,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
               }}
               className="px-6 py-2.5 bg-[#0f0b0c] text-[#faf8f8] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-sm font-normal tracking-wide transition-colors cursor-pointer"
             >
-              Select Photo
+              Выбрать фото
             </button>
 
             <button
@@ -237,12 +222,12 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
               className="px-5 py-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-[#faf8f8] text-[#0f0b0c] text-sm font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Camera className="w-4 h-4 text-[#565051]" />
-              <span>Camera</span>
+              <span>Камера</span>
             </button>
           </div>
         </div>
 
-        {/* Edit History Carousel (Persistent, Unlimited, 1px unrounded borders) */}
+        {/* Edit History Carousel */}
         {historyItems.length > 0 && (
           <div className="w-full border border-[#e3dbdc] p-3 bg-white/70">
             <ArtworkHistoryCarousel
@@ -253,48 +238,15 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             />
           </div>
         )}
-
-        {/* Feature Highlights Banner */}
-        <div className="grid grid-cols-3 gap-3 w-full">
-          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
-            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
-              <Crop className="w-3.5 h-3.5 text-[#565051]" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs text-[#0f0b0c] font-normal truncate">Scanner Warp</div>
-              <div className="text-[11px] text-[#565051] truncate">4-Pin Perspective</div>
-            </div>
-          </div>
-
-          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
-            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
-              <Sliders className="w-3.5 h-3.5 text-[#565051]" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs text-[#0f0b0c] font-normal truncate">Lightroom Suite</div>
-              <div className="text-[11px] text-[#565051] truncate">8-Color HSL & Curves</div>
-            </div>
-          </div>
-
-          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
-            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
-              <Sparkles className="w-3.5 h-3.5 text-[#565051]" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs text-[#0f0b0c] font-normal truncate">Pro Presets</div>
-              <div className="text-[11px] text-[#565051] truncate">Portra & Cinema</div>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* Quick Test Samples Shelf */}
       <footer className="w-full max-w-2xl mx-auto pt-2 pb-1 shrink-0">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-normal tracking-widest uppercase text-[#565051]">
-            Quick Test Artworks
+            Тестовые образцы
           </span>
-          <span className="text-[11px] text-[#565051]">1-click load</span>
+          <span className="text-[11px] text-[#565051]">клик для загрузки</span>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
@@ -302,24 +254,24 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             onClick={() => handleLoadSample('document')}
             className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Catalog Scan</div>
-            <p className="text-[11px] text-[#565051] truncate">Perspective test</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Скан каталога</div>
+            <p className="text-[11px] text-[#565051] truncate">Тест перспективы</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('fine-art')}
             className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Oil Portrait</div>
-            <p className="text-[11px] text-[#565051] truncate">Rich skin tones</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Масляный портрет</div>
+            <p className="text-[11px] text-[#565051] truncate">Тональность кожи</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('modern')}
             className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Modern Art</div>
-            <p className="text-[11px] text-[#565051] truncate">Chromatic study</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Современный арт</div>
+            <p className="text-[11px] text-[#565051] truncate">Хроматика цвета</p>
           </button>
         </div>
       </footer>
