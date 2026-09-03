@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Scroll Lock & App Mode */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden !important;
+  position: fixed;
+  touch-action: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #0d0e10;
+  color: #ededed;
+  overscroll-behavior: none;
+}
+
+@layer base {
+  :root {
+    --neutral-0: oklch(100% 0 0);
+    --neutral-100: oklch(0% 0 0);
+    --brand-green: oklch(54.8% 0.166 166.2);
+    --brand-red: oklch(62.8% 0.257 29.2);
+
+    --background: 14% 0.01 260;
+    --foreground: 98% 0 0;
+    --card: 18% 0.01 260;
+    --card-foreground: 98% 0 0;
+    --popover: 18% 0.01 260;
+    --popover-foreground: 98% 0 0;
+    --primary: 98% 0 0;
+    --primary-foreground: 12% 0 0;
+    --secondary: 22% 0.01 260;
+    --secondary-foreground: 95% 0 0;
+    --muted: 22% 0.01 260;
+    --muted-foreground: 65% 0 0;
+    --accent: 25% 0.02 260;
+    --accent-foreground: 98% 0 0;
+    --destructive: 62.8% 0.257 29.2;
+    --destructive-foreground: 100% 0 0;
+    --border: 24% 0.01 260;
+    --input: 24% 0.01 260;
+    --ring: 70% 0.15 166.2;
+
+    --button-green: 54.8% 0.166 166.2;
+    --button-green-hover: 60% 0.18 166.2;
+  }
+}
+
+/* Custom Lightroom Sliders */
+input[type="range"].lr-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 28px;
+}
+
+input[type="range"].lr-slider:focus {
+  outline: none;
+}
+
+input[type="range"].lr-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  position: relative;
+}
+
+input[type="range"].lr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #141517;
+  margin-top: -7px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+input[type="range"].lr-slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(22, 24, 27, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
