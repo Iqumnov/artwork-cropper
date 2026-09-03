@@ -79,7 +79,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Load History items
   const loadHistory = async () => {
     const items = await getArtworkHistory()
     setHistoryItems(items)
@@ -89,7 +88,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     loadHistory()
   }, [])
 
-  // Load initial image into baseImage
   useEffect(() => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
@@ -100,7 +98,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     img.src = initialImageUrl
   }, [initialImageUrl])
 
-  // Center & fit image in viewport
   const resetViewport = (imgW: number, imgH: number) => {
     if (!viewportRef.current) return
     const rect = viewportRef.current.getBoundingClientRect()
@@ -115,7 +112,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     })
   }
 
-  // Record adjustments history
   const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
     setAdjustments(nextAdj)
     const newHistory = history.slice(0, historyIndex + 1)
@@ -141,7 +137,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     }
   }
 
-  // Render pipeline: Draws base image, executes color correction filter, updates histogram
   const renderCanvas = useCallback(() => {
     if (!baseImage || !canvasRef.current) return
     const canvas = canvasRef.current
@@ -159,19 +154,16 @@ export const EditorView: React.FC<EditorViewProps> = ({
     ctx.clearRect(0, 0, w, h)
     ctx.drawImage(baseImage, 0, 0)
 
-    // If 'showBefore' is active, show unmodified base image
     if (showBefore) {
       const rawData = ctx.getImageData(0, 0, w, h)
       setHistogramData(computeHistogram(rawData))
       return
     }
 
-    // Apply Lightroom color processing
     const imageData = ctx.getImageData(0, 0, w, h)
     applyLightroomAdjustments(imageData, adjustments)
     ctx.putImageData(imageData, 0, 0)
 
-    // Update histogram
     setHistogramData(computeHistogram(imageData))
   }, [baseImage, adjustments, showBefore])
 
@@ -179,7 +171,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     renderCanvas()
   }, [renderCanvas])
 
-  // Save current snapshot into persistent history
   const saveSnapshotToHistory = () => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current
@@ -197,14 +188,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
     loadHistory()
   }
 
-  // 1-Click Direct Download Button
   const handleDirectDownload = () => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `artei_edit_${Date.now()}.jpg`
+    a.download = `artwork_${Date.now()}.jpg`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -212,7 +202,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     saveSnapshotToHistory()
   }
 
-  // Crop completion callback
   const handleCropComplete = (croppedCanvas: HTMLCanvasElement) => {
     setBaseImage(croppedCanvas)
     setIsCropping(false)
@@ -220,7 +209,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     saveSnapshotToHistory()
   }
 
-  // Select another artwork from History carousel
   const handleSelectHistoryArtwork = (item: HistoryArtwork) => {
     const img = new Image()
     img.onload = () => {
@@ -247,7 +235,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setHistoryItems([])
   }
 
-  // Pan & Zoom gestures
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -284,97 +271,92 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const h = baseImage ? (baseImage as HTMLImageElement).naturalHeight || baseImage.height : 0
 
   return (
-    <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#0c0d0e] select-none relative">
-      {/* Top App Bar */}
-      <header className="flex items-center justify-between px-3 py-2 z-30 glass-panel border-b border-white/10 shrink-0">
-        {/* Left Section: Back, Logo & History Drawer Button */}
+    <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] select-none relative">
+      {/* Top App Bar — strictly functional controls, no logo or branding title */}
+      <header className="flex items-center justify-between px-3 py-2 z-30 border-b border-[#e3dbdc] bg-[#faf8f8] shrink-0">
+        {/* Left Section: Back & History */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
               saveSnapshotToHistory()
               onBack()
             }}
-            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
-            title="Back to Upload"
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            title="Back to Studio"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-[#565051]" />
           </button>
-          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center p-1 shadow">
-            <img src="/artei-logo.svg" alt="ARTEI" className="w-full h-full object-contain" />
-          </div>
 
-          {/* History Drawer Toggle Button */}
           <button
             onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 squircle-full text-xs font-medium transition-all ${
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs border transition-colors cursor-pointer ${
               showHistoryDrawer
-                ? 'bg-white text-black font-semibold shadow'
-                : 'glass-pill text-white/80 hover:text-white'
+                ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c]'
             }`}
             title="View edit history"
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 text-[#565051]" />
             <span className="hidden sm:inline">History</span>
             {historyItems.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
-                {historyItems.length}
+              <span className="text-[10px] text-[#565051] ml-0.5">
+                ({historyItems.length})
               </span>
             )}
           </button>
         </div>
 
-        {/* Center Section: Undo/Redo & Crop Launcher */}
-        <div className="flex items-center gap-1 sm:gap-2">
+        {/* Center Section: Undo/Redo, Crop, Before, Histogram */}
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <button
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white disabled:opacity-30 transition-transform active:scale-95"
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Undo"
           >
-            <Undo2 className="w-3.5 h-3.5" />
+            <Undo2 className="w-3.5 h-3.5 text-[#565051]" />
           </button>
           <button
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white disabled:opacity-30 transition-transform active:scale-95"
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Redo"
           >
-            <Redo2 className="w-3.5 h-3.5" />
+            <Redo2 className="w-3.5 h-3.5 text-[#565051]" />
           </button>
 
-          {/* Crop & Perspective Tool Button */}
           <button
             onClick={() => setIsCropping(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 squircle-full glass-pill text-xs font-medium text-white hover:bg-white/15 transition-transform active:scale-95 ml-0.5"
+            className="flex items-center gap-1 px-3 py-1 text-xs border border-[#e3dbdc] hover:border-[#34292a] bg-transparent text-[#0f0b0c] transition-colors cursor-pointer ml-1"
             title="Perspective Scanner Crop"
           >
-            <Crop className="w-3.5 h-3.5 text-white" />
+            <Crop className="w-3.5 h-3.5 text-[#565051]" />
             <span>Crop</span>
           </button>
 
-          {/* Before / After Hold Toggle */}
           <button
             onMouseDown={() => setShowBefore(true)}
             onMouseUp={() => setShowBefore(false)}
             onMouseLeave={() => setShowBefore(false)}
             onTouchStart={() => setShowBefore(true)}
             onTouchEnd={() => setShowBefore(false)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 squircle-full text-xs font-medium transition-all ${
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs border transition-colors cursor-pointer ${
               showBefore
-                ? 'bg-white text-black font-bold scale-105'
-                : 'glass-pill text-white/70 hover:text-white'
+                ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c]'
             }`}
             title="Hold to see original unedited photo"
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-3.5 h-3.5 text-[#565051]" />
             <span className="hidden sm:inline">Before</span>
           </button>
 
-          {/* Histogram Toggle */}
           <button
             onClick={() => setShowHistogram(!showHistogram)}
-            className={`w-8 h-8 squircle-full text-xs flex items-center justify-center transition-all ${
-              showHistogram ? 'glass-pill text-white' : 'text-white/40 hover:text-white'
+            className={`w-8 h-8 flex items-center justify-center border transition-colors cursor-pointer ${
+              showHistogram
+                ? 'border-[#34292a] bg-[#e3dbdc]/30 text-[#0f0b0c]'
+                : 'border-[#e3dbdc] text-[#565051]'
             }`}
             title="Toggle Histogram"
           >
@@ -382,38 +364,36 @@ export const EditorView: React.FC<EditorViewProps> = ({
           </button>
         </div>
 
-        {/* Right Section: Direct Download & Export Dialog */}
+        {/* Right Section: Direct Download & Export */}
         <div className="flex items-center gap-1.5">
-          {/* Direct 1-Click Download Button */}
           <button
             onClick={handleDirectDownload}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white text-xs font-semibold shadow-md transition-transform active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-1 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal transition-colors cursor-pointer"
             title="Direct 1-Click Download"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download</span>
           </button>
 
-          {/* Export Options Modal Button */}
           <button
             onClick={() => setShowExportModal(true)}
-            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
-            title="Export Options (PNG, WebP, Quality)"
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            title="Export Options"
           >
-            <Share2 className="w-3.5 h-3.5" />
+            <Share2 className="w-3.5 h-3.5 text-[#565051]" />
           </button>
         </div>
       </header>
 
       {/* History Drawer Overlay (Slide-down from top bar) */}
       {showHistoryDrawer && (
-        <div className="absolute top-12 left-0 right-0 z-40 bg-[#141619]/95 backdrop-blur-xl border-b border-white/10 p-3 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-11 left-0 right-0 z-40 bg-[#faf8f8] border-b border-[#e3dbdc] p-3 shadow-lg">
           <div className="max-w-xl mx-auto flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white/90">Switch / Re-edit Artwork</span>
+              <span className="text-xs text-[#0f0b0c] font-normal tracking-wide">Switch / Re-edit Artwork</span>
               <button
                 onClick={() => setShowHistoryDrawer(false)}
-                className="text-white/50 hover:text-white text-xs p-1"
+                className="text-[#565051] hover:text-[#0f0b0c] text-xs p-1"
               >
                 <ChevronDown className="w-4 h-4" />
               </button>
@@ -426,16 +406,16 @@ export const EditorView: React.FC<EditorViewProps> = ({
                 onClearAll={handleClearAllHistory}
               />
             ) : (
-              <div className="text-xs text-white/40 text-center py-4">No edit history yet</div>
+              <div className="text-xs text-[#565051] text-center py-4">No edit history yet</div>
             )}
           </div>
         </div>
       )}
 
-      {/* Center Image Viewport (Strictly non-scrollable, gesture pan/zoom) */}
+      {/* Center Image Viewport */}
       <div
         ref={viewportRef}
-        className="relative flex-1 overflow-hidden cursor-grab active:cursor-grabbing touch-none flex items-center justify-center bg-[#090a0c]"
+        className="relative flex-1 overflow-hidden cursor-grab active:cursor-grabbing touch-none flex items-center justify-center bg-[#f5f3f3]"
         onWheel={handleWheel}
         onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
         onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
@@ -479,14 +459,14 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
         {/* Before indicator watermark */}
         {showBefore && (
-          <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-full bg-black/70 border border-white/20 text-[11px] font-mono tracking-wider text-white uppercase pointer-events-none">
+          <div className="absolute top-4 left-4 z-20 px-2.5 py-1 bg-[#faf8f8] border border-[#e3dbdc] text-[11px] font-mono tracking-wider text-[#0f0b0c] uppercase pointer-events-none">
             Original Unedited
           </div>
         )}
 
         {/* Viewport Canvas Container */}
         <div
-          className="absolute origin-top-left pointer-events-none shadow-2xl transition-transform duration-75 ease-out"
+          className="absolute origin-top-left pointer-events-none shadow-md transition-transform duration-75 ease-out"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             width: w,
@@ -497,13 +477,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
 
         {/* Zoom Level Indicator */}
-        <div className="absolute bottom-2 left-3 z-10 text-[10px] font-mono text-white/30 pointer-events-none">
+        <div className="absolute bottom-2 left-3 z-10 text-[10px] font-mono text-[#565051] pointer-events-none">
           {Math.round(zoom * 100)}%
         </div>
       </div>
 
       {/* Bottom Lightroom Controls Drawer */}
-      <div className="shrink-0 z-30">
+      <div className="shrink-0 z-30 border-t border-[#e3dbdc] bg-[#faf8f8]">
         <LightroomStudio
           adjustments={adjustments}
           onChange={handleAdjustmentsChange}

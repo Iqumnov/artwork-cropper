@@ -91,20 +91,20 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col justify-between overflow-hidden">
+    <div className="fixed inset-0 z-[100] bg-[#faf8f8] flex flex-col justify-between overflow-hidden text-[#0f0b0c]">
       {/* Top Header */}
-      <div className="flex items-center justify-between p-4 z-10">
-        <span className="text-sm font-medium tracking-wide text-white/80">Scan Artwork / Document</span>
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#e3dbdc] bg-[#faf8f8] z-10">
+        <span className="text-xs font-normal tracking-wider uppercase text-[#565051]">Scan Artwork / Document</span>
         <button
           onClick={onClose}
-          className="w-10 h-10 squircle-full glass-pill flex items-center justify-center text-white hover:bg-white/20 transition-transform active:scale-95"
+          className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4 text-[#565051]" />
         </button>
       </div>
 
       {/* Camera / Preview Viewport */}
-      <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black">
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-[#161415]">
         {error ? (
           <div className="p-6 text-center text-red-400 text-sm">{error}</div>
         ) : capturedUrl ? (
@@ -118,54 +118,53 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
               muted
               className="w-full h-full object-contain"
             />
-            {/* Guide overlay */}
-            <div className="absolute inset-8 border border-white/20 rounded-2xl pointer-events-none flex items-center justify-center">
-              <span className="text-xs text-white/40 tracking-wider uppercase">Align artwork within frame</span>
+            {/* Alignment Box */}
+            <div className="absolute inset-8 border border-[#e3dbdc]/40 pointer-events-none flex items-center justify-center">
+              <span className="text-[11px] text-white/50 tracking-wider uppercase">Align artwork within frame</span>
             </div>
           </>
         )}
       </div>
 
       {/* Bottom Controls */}
-      <div className="p-6 pb-8 flex items-center justify-around z-10 glass-panel border-t border-white/10">
+      <div className="p-4 flex items-center justify-around z-10 bg-[#faf8f8] border-t border-[#e3dbdc]">
         {capturedUrl ? (
-          <>
+          <div className="flex items-center gap-3">
             <button
               onClick={handleRetake}
-              className="px-5 py-2.5 squircle-full glass-pill text-sm font-medium text-white flex items-center gap-2 hover:bg-white/20 transition-transform active:scale-95"
+              className="px-4 py-2 border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] flex items-center gap-1.5 transition-colors cursor-pointer bg-white"
             >
-              <RefreshCw className="w-4 h-4" />
-              Retake
+              <RefreshCw className="w-3.5 h-3.5 text-[#565051]" />
+              <span>Retake</span>
             </button>
             <button
               onClick={handleConfirm}
-              className="px-6 py-2.5 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white text-sm font-medium flex items-center gap-2 shadow-lg transition-transform active:scale-95"
+              className="px-5 py-2 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              Use Photo
+              <Check className="w-3.5 h-3.5" />
+              <span>Use Photo</span>
             </button>
-          </>
+          </div>
         ) : (
           <>
             <button
               onClick={handleToggleFacingMode}
-              className="w-12 h-12 squircle-full glass-pill flex items-center justify-center text-white hover:bg-white/20 transition-transform active:scale-95"
+              className="w-10 h-10 border border-[#e3dbdc] hover:border-[#34292a] bg-white flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Flip camera"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-4 h-4 text-[#565051]" />
             </button>
 
             {/* Shutter Button */}
             <button
               onClick={handleTakeSnapshot}
-              className="w-18 h-18 rounded-full border-4 border-white flex items-center justify-center p-1 active:scale-95 transition-transform"
+              className="w-14 h-14 border-2 border-[#0f0b0c] bg-white hover:bg-[#34292a] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Take Photo"
             >
-              <div className="w-14 h-14 rounded-full bg-white active:bg-white/80 transition-colors flex items-center justify-center">
-                <Camera className="w-6 h-6 text-black" />
-              </div>
+              <Camera className="w-5 h-5 text-[#0f0b0c]" />
             </button>
 
-            <div className="w-12 h-12" />
+            <div className="w-10 h-10" />
           </>
         )}
       </div>

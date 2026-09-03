@@ -463,35 +463,35 @@ export const CropStudio: React.FC<CropStudioProps> = ({
   }
 
   return (
-    <div className="absolute inset-0 z-40 bg-black flex flex-col justify-between overflow-hidden select-none">
+    <div className="absolute inset-0 z-40 bg-[#161415] flex flex-col justify-between overflow-hidden select-none">
       {/* Top Header */}
-      <div className="flex items-center justify-between p-3.5 z-50 glass-panel border-b border-white/10">
+      <div className="flex items-center justify-between px-3 py-2 z-50 bg-[#faf8f8] border-b border-[#e3dbdc]">
         <button
           onClick={onCancel}
-          className="w-9 h-9 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+          className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
           title="Cancel Crop"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4 text-[#565051]" />
         </button>
 
         {/* Mode Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-full bg-white/10">
+        <div className="flex items-center gap-1 border border-[#e3dbdc] p-0.5 bg-white">
           <button
             onClick={() => setMode('edit_scan')}
-            className={`px-3 py-1 squircle-full text-xs font-medium transition-all ${
+            className={`px-3 py-1 text-xs font-normal transition-colors cursor-pointer border ${
               mode === 'edit_scan'
-                ? 'bg-white text-black shadow-sm font-semibold'
-                : 'text-white/70 hover:text-white'
+                ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                : 'border-transparent text-[#565051] hover:text-[#0f0b0c]'
             }`}
           >
             Scanner Warp
           </button>
           <button
             onClick={() => setMode('fixed')}
-            className={`px-3 py-1 squircle-full text-xs font-medium transition-all ${
+            className={`px-3 py-1 text-xs font-normal transition-colors cursor-pointer border ${
               mode === 'fixed'
-                ? 'bg-white text-black shadow-sm font-semibold'
-                : 'text-white/70 hover:text-white'
+                ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                : 'border-transparent text-[#565051] hover:text-[#0f0b0c]'
             }`}
           >
             Fixed Aspect
@@ -501,7 +501,7 @@ export const CropStudio: React.FC<CropStudioProps> = ({
         {/* Confirm Crop Button */}
         <button
           onClick={handleApplyCrop}
-          className="w-9 h-9 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white flex items-center justify-center shadow-lg transition-transform active:scale-95"
+          className="w-8 h-8 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
           title="Apply Crop"
         >
           <Check className="w-4 h-4" />
@@ -707,7 +707,7 @@ export const CropStudio: React.FC<CropStudioProps> = ({
       </div>
 
       {/* Bottom Toolbar & Presets */}
-      <div className="p-3 pb-4 z-50 glass-panel border-t border-white/10 flex flex-col gap-2.5">
+      <div className="p-3 pb-4 z-50 bg-[#faf8f8] border-t border-[#e3dbdc] flex flex-col gap-2.5">
         {/* Aspect Ratio Selector (Fixed mode only) */}
         {mode === 'fixed' && (
           <div className="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar justify-center">
@@ -723,10 +723,10 @@ export const CropStudio: React.FC<CropStudioProps> = ({
                     }))
                   }
                 }}
-                className={`px-3 py-1 squircle-full text-xs font-medium whitespace-nowrap transition-transform active:scale-95 ${
+                className={`px-3 py-1 text-xs font-normal whitespace-nowrap transition-colors cursor-pointer border ${
                   selectedAspectRatio.name === ratio.name
-                    ? 'bg-white text-black font-semibold'
-                    : 'glass-pill text-white/80 hover:text-white'
+                    ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                    : 'bg-white border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
                 }`}
               >
                 {ratio.name}
@@ -735,62 +735,62 @@ export const CropStudio: React.FC<CropStudioProps> = ({
           </div>
         )}
 
-        {/* Action Buttons: Auto Detect, Reset, Zoom */}
+        {/* Action Buttons: Auto Detect, Reset, Rotate, Flip, Zoom */}
         <div className="flex items-center justify-between gap-2 max-w-md mx-auto w-full">
           {mode === 'edit_scan' && (
             <button
               onClick={handleAutoDetect}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 squircle-full glass-pill text-xs font-medium text-white/90 hover:bg-white/15 transition-transform active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              Auto Detect
+              <Sparkles className="w-3.5 h-3.5 text-[#565051]" />
+              <span>Auto Detect</span>
             </button>
           )}
 
           <button
             onClick={handleResetPoints}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 squircle-full glass-pill text-xs font-medium text-white/80 hover:bg-white/15 transition-transform active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Bounds
+            <RotateCcw className="w-3.5 h-3.5 text-[#565051]" />
+            <span>Reset</span>
           </button>
 
           <div className="flex items-center gap-1">
             <button
               onClick={handleRotateCW}
-              className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+              className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Rotate 90°"
             >
-              <RotateCw className="w-3.5 h-3.5" />
+              <RotateCw className="w-3 h-3 text-[#565051]" />
             </button>
             <button
               onClick={handleFlipH}
-              className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+              className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Flip Horizontal"
             >
-              <FlipHorizontal className="w-3.5 h-3.5" />
+              <FlipHorizontal className="w-3 h-3 text-[#565051]" />
             </button>
             <button
               onClick={handleFlipV}
-              className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+              className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Flip Vertical"
             >
-              <FlipVertical className="w-3.5 h-3.5" />
+              <FlipVertical className="w-3 h-3 text-[#565051]" />
             </button>
-            <div className="w-px h-4 bg-white/10 mx-0.5" />
+            <div className="w-px h-4 bg-[#e3dbdc] mx-0.5" />
             <button
               onClick={() => setScale(s => Math.min(4, s * 1.2))}
-              className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+              className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Zoom In"
             >
-              <ZoomIn className="w-3.5 h-3.5" />
+              <ZoomIn className="w-3 h-3 text-[#565051]" />
             </button>
             <button
               onClick={() => setScale(s => Math.max(0.3, s / 1.2))}
-              className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+              className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
               title="Zoom Out"
             >
-              <ZoomOut className="w-3.5 h-3.5" />
+              <ZoomOut className="w-3 h-3 text-[#565051]" />
             </button>
           </div>
         </div>

@@ -2,12 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Global Scroll Lock & App Mode */
+@font-face {
+  font-family: 'Gloriascript';
+  src: url('/gloriascript.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EBGaramond';
+  src: url('/EBGaramond-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EBGaramond';
+  src: url('/EBGaramond-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --display-font: 'Gloriascript', 'Pinyon Script', 'Playfair Display', Georgia, serif;
+  --body-font: 'EBGaramond', 'Merriweather', 'PT Serif', Georgia, serif;
+
+  --background: #faf8f8;
+  --foreground: #0f0b0c;
+  --border: #e3dbdc;
+  --border-hover: #34292a;
+  --text-primary: #0f0b0c;
+  --text-secondary: #565051;
+  --icon-black: #0f0b0c;
+  --icon-grey: #565051;
+}
+
+/* Global Reset & Layout */
 * {
   scrollbar-width: none;
   -ms-overflow-style: none;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 3px !important;
 }
 
 *::-webkit-scrollbar {
@@ -23,51 +63,68 @@ html, body {
   overflow: hidden !important;
   position: fixed;
   touch-action: none;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #0d0e10;
-  color: #ededed;
+  font-family: var(--body-font), Georgia, 'Times New Roman', serif;
+  background-color: #faf8f8;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.07'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+  color: #0f0b0c;
   overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
+/* Ensure all borders are strictly 1px and non-rounded */
 @layer base {
-  :root {
-    --neutral-0: oklch(100% 0 0);
-    --neutral-100: oklch(0% 0 0);
-    --brand-green: oklch(54.8% 0.166 166.2);
-    --brand-red: oklch(62.8% 0.257 29.2);
+  .border, [class*="border-"] {
+    border-width: 1px !important;
+  }
 
-    --background: 14% 0.01 260;
-    --foreground: 98% 0 0;
-    --card: 18% 0.01 260;
-    --card-foreground: 98% 0 0;
-    --popover: 18% 0.01 260;
-    --popover-foreground: 98% 0 0;
-    --primary: 98% 0 0;
-    --primary-foreground: 12% 0 0;
-    --secondary: 22% 0.01 260;
-    --secondary-foreground: 95% 0 0;
-    --muted: 22% 0.01 260;
-    --muted-foreground: 65% 0 0;
-    --accent: 25% 0.02 260;
-    --accent-foreground: 98% 0 0;
-    --destructive: 62.8% 0.257 29.2;
-    --destructive-foreground: 100% 0 0;
-    --border: 24% 0.01 260;
-    --input: 24% 0.01 260;
-    --ring: 70% 0.15 166.2;
+  /* Disallow bold across entire design system */
+  .font-bold,
+  .font-semibold,
+  .font-medium,
+  strong,
+  b,
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 400 !important;
+  }
 
-    --button-green: 54.8% 0.166 166.2;
-    --button-green-hover: 60% 0.18 166.2;
+  button, input, select, textarea {
+    font-family: inherit;
+    border-radius: 0 !important;
   }
 }
 
-/* Custom Lightroom Sliders */
+/* Custom Text Selection */
+::selection {
+  background-color: #e3dbdc;
+  color: #0f0b0c;
+}
+
+::-moz-selection {
+  background-color: #e3dbdc;
+  color: #0f0b0c;
+}
+
+/* Heading Utility (Gloriascript accent) */
+.font-heading {
+  font-family: var(--display-font) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.02em;
+}
+
+.font-body {
+  font-family: var(--body-font) !important;
+  font-weight: 400 !important;
+}
+
+/* Editorial Sliders */
 input[type="range"].lr-slider {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
-  height: 28px;
+  height: 24px;
 }
 
 input[type="range"].lr-slider:focus {
@@ -75,45 +132,68 @@ input[type="range"].lr-slider:focus {
 }
 
 input[type="range"].lr-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
+  height: 1px;
+  background: #e3dbdc;
   position: relative;
+}
+
+input[type="range"].lr-slider:hover::-webkit-slider-runnable-track {
+  background: #34292a;
 }
 
 input[type="range"].lr-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  height: 18px;
-  width: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #141517;
-  margin-top: -7px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  height: 12px;
+  width: 12px;
+  border-radius: 0;
+  background: #0f0b0c;
+  border: 1px solid #faf8f8;
+  margin-top: -5.5px;
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 input[type="range"].lr-slider:active::-webkit-slider-thumb {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
+  transform: scale(1.25);
+  background: #34292a;
 }
 
-/* Glassmorphism helpers */
-.glass-panel {
-  background: rgba(22, 24, 27, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Panel & Card Helper */
+.editorial-panel {
+  background: #faf8f8;
+  border: 1px solid #e3dbdc;
 }
 
-.glass-pill {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.editorial-card {
+  background: #ffffff;
+  border: 1px solid #e3dbdc;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.glass-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
+.editorial-card:hover {
+  border-color: #34292a;
+}
+
+.editorial-btn {
+  border: 1px solid #e3dbdc;
+  background: #faf8f8;
+  color: #0f0b0c;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.editorial-btn:hover {
+  border-color: #34292a;
+  background: #e3dbdc;
+}
+
+.editorial-btn-primary {
+  border: 1px solid #0f0b0c;
+  background: #0f0b0c;
+  color: #faf8f8;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.editorial-btn-primary:hover {
+  background: #34292a;
+  border-color: #34292a;
 }

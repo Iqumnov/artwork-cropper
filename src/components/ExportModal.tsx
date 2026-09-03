@@ -22,7 +22,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
     const dataUrl = canvas.toDataURL(format, quality)
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `artei_edit_${Date.now()}.${ext}`
+    a.download = `artwork_${Date.now()}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -47,25 +47,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[#16181b] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-5">
+    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[#faf8f8] border border-[#e3dbdc] p-6 max-w-sm w-full shadow-xl flex flex-col gap-5 text-[#0f0b0c]">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-[#e3dbdc] pb-3">
           <div>
-            <h3 className="text-base font-semibold text-white tracking-tight">Export Artwork</h3>
-            <p className="text-xs text-white/50">{width} × {height} px</p>
+            <h3 className="text-base font-normal text-[#0f0b0c] tracking-tight">Export Artwork</h3>
+            <p className="text-xs text-[#565051] font-mono">{width} × {height} px</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/70 hover:text-white"
+            className="w-7 h-7 border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Format Selector */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium text-white/70">Format</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-normal text-[#565051] uppercase tracking-wider">Format</label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { id: 'image/jpeg', label: 'JPG' },
@@ -75,10 +75,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
               <button
                 key={f.id}
                 onClick={() => setFormat(f.id as any)}
-                className={`py-2 rounded-xl text-xs font-medium transition-all ${
+                className={`py-1.5 text-xs font-normal transition-colors border cursor-pointer ${
                   format === f.id
-                    ? 'bg-white text-black font-semibold shadow'
-                    : 'glass-panel text-white/70 hover:text-white'
+                    ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                    : 'bg-white border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
                 }`}
               >
                 {f.label}
@@ -87,12 +87,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
           </div>
         </div>
 
-        {/* Quality Slider (for JPEG / WebP) */}
+        {/* Quality Slider */}
         {format !== 'image/png' && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-white/70 font-medium">Quality</span>
-              <span className="font-mono text-white/50">{Math.round(quality * 100)}%</span>
+              <span className="text-[#565051] font-normal uppercase tracking-wider">Quality</span>
+              <span className="font-mono text-[#0f0b0c]">{Math.round(quality * 100)}%</span>
             </div>
             <input
               type="range"
@@ -107,28 +107,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col gap-2.5 pt-2">
+        <div className="flex flex-col gap-2 pt-2">
           <button
             onClick={handleDownload}
-            className="w-full py-3 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white text-sm font-medium flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95"
+            className="w-full py-2.5 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            Download Artwork
+            <span>Download Artwork</span>
           </button>
 
           <button
             onClick={handleCopyToClipboard}
-            className="w-full py-2.5 squircle-full glass-panel text-white/80 hover:text-white text-xs font-medium flex items-center justify-center gap-2 transition-colors active:scale-95"
+            className="w-full py-2 bg-white hover:bg-[#faf8f8] border border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4 text-emerald-400" />
-                Copied to Clipboard!
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Copied to Clipboard!</span>
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" />
-                Copy to Clipboard
+                <Copy className="w-3.5 h-3.5 text-[#565051]" />
+                <span>Copy to Clipboard</span>
               </>
             )}
           </button>

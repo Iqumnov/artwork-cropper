@@ -23,7 +23,6 @@ export const Histogram: React.FC<HistogramProps> = ({ data, className = '' }) =>
     const h = canvas.height
     ctx.clearRect(0, 0, w, h)
 
-    // Find maximum bin height for scaling (excluding zero-outliers)
     let max = 1
     for (let i = 2; i < 254; i++) {
       if (data.rBins[i] > max) max = data.rBins[i]
@@ -53,19 +52,18 @@ export const Histogram: React.FC<HistogramProps> = ({ data, className = '' }) =>
       ctx.stroke()
     }
 
-    // Blend modes
-    ctx.globalCompositeOperation = 'screen'
-    drawChannel(data.rBins, 'rgb(244, 63, 94)', 0.25)
-    drawChannel(data.gBins, 'rgb(34, 197, 94)', 0.25)
-    drawChannel(data.bBins, 'rgb(59, 130, 246)', 0.25)
-    drawChannel(data.lBins, 'rgb(255, 255, 255)', 0.15)
+    ctx.globalCompositeOperation = 'multiply'
+    drawChannel(data.rBins, 'rgb(225, 29, 72)', 0.25)
+    drawChannel(data.gBins, 'rgb(22, 101, 52)', 0.25)
+    drawChannel(data.bBins, 'rgb(37, 99, 235)', 0.25)
+    drawChannel(data.lBins, 'rgb(86, 80, 81)', 0.2)
     ctx.globalCompositeOperation = 'source-over'
   }, [data])
 
   return (
-    <div className={`relative overflow-hidden rounded-lg bg-black/40 border border-white/10 p-1 ${className}`}>
-      <canvas ref={canvasRef} width={140} height={44} className="w-full h-full block rounded" />
-      <div className="absolute top-1 left-1.5 text-[9px] font-mono uppercase tracking-widest text-white/40 pointer-events-none">
+    <div className={`relative overflow-hidden bg-[#faf8f8]/95 border border-[#e3dbdc] p-1 shadow-sm ${className}`}>
+      <canvas ref={canvasRef} width={130} height={38} className="w-full h-full block" />
+      <div className="absolute top-1 left-1.5 text-[8px] font-mono uppercase tracking-widest text-[#565051] pointer-events-none">
         RGB Luma
       </div>
     </div>

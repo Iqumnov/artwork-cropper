@@ -19,7 +19,6 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
-  // Load history from IndexedDB / localStorage
   const loadHistory = async () => {
     const items = await getArtworkHistory()
     setHistoryItems(items)
@@ -39,7 +38,6 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
     setHistoryItems([])
   }
 
-  // Unified File Processor supporting all formats
   const processFile = async (file: File) => {
     setIsProcessing(true)
     try {
@@ -64,11 +62,10 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
           onImageSelect(url)
           return
         } catch (heicErr) {
-          console.warn('heic2any conversion error, falling back to standard reader:', heicErr)
+          console.warn('heic2any conversion error:', heicErr)
         }
       }
 
-      // Standard FileReader for JPG, PNG, WebP, AVIF, BMP, GIF, SVG
       const reader = new FileReader()
       reader.onload = (event) => {
         if (event.target?.result) {
@@ -84,7 +81,6 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
     }
   }
 
-  // Global paste handler (Ctrl+V / Cmd+V)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items
@@ -153,12 +149,12 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
   }
 
   return (
-    <div className="h-full w-full flex flex-col justify-between overflow-y-auto no-scrollbar bg-[#0c0d0e] p-3 sm:p-5 select-none relative">
+    <div className="h-full w-full flex flex-col justify-between overflow-y-auto no-scrollbar bg-[#faf8f8] text-[#0f0b0c] p-4 sm:p-8 select-none relative">
       {/* Loading Overlay */}
       {isProcessing && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 text-[oklch(var(--button-green))] animate-spin" />
-          <span className="text-sm font-medium text-white/90">Processing image...</span>
+        <div className="fixed inset-0 z-50 bg-[#faf8f8]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 border border-[#e3dbdc]">
+          <Loader2 className="w-8 h-8 text-[#0f0b0c] animate-spin" />
+          <span className="text-base text-[#565051] font-normal">Processing image...</span>
         </div>
       )}
 
@@ -180,67 +176,54 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
         className="hidden"
       />
 
-      {/* Top Navbar */}
-      <header className="flex items-center justify-between py-2 border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white flex items-center justify-center p-1.5 shadow-md">
-            <img src="/artei-logo.svg" alt="ARTEI" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h1 className="text-sm sm:text-base font-semibold tracking-tight text-white flex items-center gap-2">
-              ARTEI <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-mono">STUDIO</span>
-            </h1>
-            <p className="text-[10px] sm:text-[11px] text-white/50 tracking-wider">Perspective Scanner & Adobe Lightroom Grading</p>
-          </div>
+      {/* Top action row without any logo or header */}
+      <div className="w-full max-w-2xl mx-auto flex items-center justify-between pb-2">
+        <div className="text-2xl font-heading text-[#0f0b0c]">
+          Studio
         </div>
-
         <button
           onClick={handleCameraClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 squircle-full glass-pill text-xs font-medium text-white hover:bg-white/15 transition-transform active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent text-[#0f0b0c] text-sm transition-colors cursor-pointer"
           title="Take photo with camera"
         >
-          <Camera className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Take Photo</span>
+          <Camera className="w-3.5 h-3.5 text-[#565051]" />
+          <span>Camera</span>
         </button>
-      </header>
+      </div>
 
       {/* Main Upload Dropzone Area */}
-      <main className="flex-1 flex flex-col justify-center items-center max-w-xl w-full mx-auto my-auto py-3 gap-3">
+      <main className="flex-1 flex flex-col justify-center items-center max-w-2xl w-full mx-auto my-auto py-4 gap-4">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full group cursor-pointer relative overflow-hidden rounded-3xl p-6 sm:p-8 transition-all duration-300 border-2 border-dashed flex flex-col items-center justify-center text-center ${
+          className={`w-full group cursor-pointer relative p-8 sm:p-12 transition-all duration-200 border flex flex-col items-center justify-center text-center ${
             isDragging
-              ? 'border-[oklch(var(--brand-green))] bg-[oklch(var(--brand-green)/0.12)] scale-[1.01]'
-              : 'border-white/15 hover:border-white/30 bg-white/[0.03] hover:bg-white/[0.05]'
+              ? 'border-[#34292a] bg-[#e3dbdc]/40'
+              : 'border-[#e3dbdc] hover:border-[#34292a] bg-[#ffffff]/60 hover:bg-[#ffffff]'
           }`}
         >
-          {/* Ambient Glow */}
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-[oklch(var(--brand-green)/0.2)] blur-3xl rounded-full pointer-events-none group-hover:scale-150 transition-transform duration-700" />
-          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-500/10 blur-3xl rounded-full pointer-events-none group-hover:scale-150 transition-transform duration-700" />
-
-          {/* Icon Badge */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 squircle-2xl bg-white/10 flex items-center justify-center mb-3 text-white shadow-xl group-hover:scale-110 transition-transform duration-300">
-            <Upload className="w-7 h-7 sm:w-8 sm:h-8 text-white/90" />
+          {/* Icon */}
+          <div className="w-12 h-12 border border-[#e3dbdc] flex items-center justify-center mb-4 text-[#0f0b0c] group-hover:border-[#34292a] transition-colors">
+            <Upload className="w-5 h-5 text-[#565051] group-hover:text-[#0f0b0c] transition-colors" />
           </div>
 
-          <h2 className="text-base sm:text-lg font-medium text-white mb-1.5 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-normal text-[#0f0b0c] mb-2 font-body tracking-tight">
             Drop artwork or document here
           </h2>
-          <p className="text-xs text-white/50 max-w-sm mb-4 leading-relaxed">
-            Select from library, take photo with camera, or paste from clipboard (supports JPG, PNG, HEIC, WebP, AVIF, TIFF, SVG)
+          <p className="text-sm text-[#565051] max-w-md mb-6 leading-relaxed">
+            Select from library, capture with camera, or paste from clipboard (JPG, PNG, HEIC, WebP, AVIF, TIFF)
           </p>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 fileInputRef.current?.click()
               }}
-              className="px-5 py-2 squircle-full bg-white text-black hover:bg-white/90 text-xs sm:text-sm font-medium tracking-wide shadow-lg transition-transform group-hover:scale-105 active:scale-95"
+              className="px-6 py-2.5 bg-[#0f0b0c] text-[#faf8f8] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-sm font-normal tracking-wide transition-colors cursor-pointer"
             >
               Select Photo
             </button>
@@ -251,17 +234,17 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
                 e.stopPropagation()
                 handleCameraClick()
               }}
-              className="px-4 py-2 squircle-full glass-pill text-white hover:bg-white/15 text-xs sm:text-sm font-medium tracking-wide flex items-center gap-1.5 transition-transform active:scale-95"
+              className="px-5 py-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-[#faf8f8] text-[#0f0b0c] text-sm font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Camera className="w-3.5 h-3.5" />
+              <Camera className="w-4 h-4 text-[#565051]" />
               <span>Camera</span>
             </button>
           </div>
         </div>
 
-        {/* Edit History Carousel (Persistent, Unlimited) */}
+        {/* Edit History Carousel (Persistent, Unlimited, 1px unrounded borders) */}
         {historyItems.length > 0 && (
-          <div className="w-full glass-panel p-3 rounded-2xl border border-white/10">
+          <div className="w-full border border-[#e3dbdc] p-3 bg-white/70">
             <ArtworkHistoryCarousel
               items={historyItems}
               onSelect={(item) => onImageSelect(item.dataUrl, item.adjustments, item.id)}
@@ -272,86 +255,71 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
         )}
 
         {/* Feature Highlights Banner */}
-        <div className="grid grid-cols-3 gap-2 w-full">
-          <div className="glass-panel p-2 rounded-xl flex items-center gap-2">
-            <div className="w-6 h-6 squircle-sm bg-white/10 flex items-center justify-center shrink-0">
-              <Crop className="w-3 h-3 text-white" />
+        <div className="grid grid-cols-3 gap-3 w-full">
+          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
+            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
+              <Crop className="w-3.5 h-3.5 text-[#565051]" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] sm:text-[11px] font-medium text-white/90 truncate">Scanner Warp</div>
-              <div className="text-[8px] sm:text-[9px] text-white/50 truncate">4-Pin Perspective</div>
+              <div className="text-xs text-[#0f0b0c] font-normal truncate">Scanner Warp</div>
+              <div className="text-[11px] text-[#565051] truncate">4-Pin Perspective</div>
             </div>
           </div>
 
-          <div className="glass-panel p-2 rounded-xl flex items-center gap-2">
-            <div className="w-6 h-6 squircle-sm bg-white/10 flex items-center justify-center shrink-0">
-              <Sliders className="w-3 h-3 text-[oklch(var(--brand-green))]" />
+          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
+            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
+              <Sliders className="w-3.5 h-3.5 text-[#565051]" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] sm:text-[11px] font-medium text-white/90 truncate">Lightroom Suite</div>
-              <div className="text-[8px] sm:text-[9px] text-white/50 truncate">HSL & Curves</div>
+              <div className="text-xs text-[#0f0b0c] font-normal truncate">Lightroom Suite</div>
+              <div className="text-[11px] text-[#565051] truncate">8-Color HSL & Curves</div>
             </div>
           </div>
 
-          <div className="glass-panel p-2 rounded-xl flex items-center gap-2">
-            <div className="w-6 h-6 squircle-sm bg-white/10 flex items-center justify-center shrink-0">
-              <Sparkles className="w-3 h-3 text-amber-400" />
+          <div className="border border-[#e3dbdc] p-3 bg-white/50 flex items-center gap-2.5">
+            <div className="w-6 h-6 border border-[#e3dbdc] flex items-center justify-center shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-[#565051]" />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] sm:text-[11px] font-medium text-white/90 truncate">12 Pro Presets</div>
-              <div className="text-[8px] sm:text-[9px] text-white/50 truncate">Portra & Cinema</div>
+              <div className="text-xs text-[#0f0b0c] font-normal truncate">Pro Presets</div>
+              <div className="text-[11px] text-[#565051] truncate">Portra & Cinema</div>
             </div>
           </div>
         </div>
       </main>
 
       {/* Quick Test Samples Shelf */}
-      <footer className="w-full max-w-xl mx-auto pt-1 pb-1 shrink-0">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] sm:text-[11px] font-medium tracking-wider uppercase text-white/50">
+      <footer className="w-full max-w-2xl mx-auto pt-2 pb-1 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-normal tracking-widest uppercase text-[#565051]">
             Quick Test Artworks
           </span>
-          <span className="text-[9px] text-white/30">1-tap instant load</span>
+          <span className="text-[11px] text-[#565051]">1-click load</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => handleLoadSample('document')}
-            className="group relative overflow-hidden rounded-xl p-2 glass-panel hover:border-white/30 text-left transition-all active:scale-95"
+            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-4 h-4 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center text-[9px]">
-                📐
-              </div>
-              <span className="text-[11px] font-medium text-white/90 group-hover:text-white truncate">Catalog Scan</span>
-            </div>
-            <p className="text-[9px] text-white/50 line-clamp-1">Perspective test</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Catalog Scan</div>
+            <p className="text-[11px] text-[#565051] truncate">Perspective test</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('fine-art')}
-            className="group relative overflow-hidden rounded-xl p-2 glass-panel hover:border-white/30 text-left transition-all active:scale-95"
+            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-4 h-4 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center text-[9px]">
-                🎨
-              </div>
-              <span className="text-[11px] font-medium text-white/90 group-hover:text-white truncate">Oil Portrait</span>
-            </div>
-            <p className="text-[9px] text-white/50 line-clamp-1">Rich skin tones</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Oil Portrait</div>
+            <p className="text-[11px] text-[#565051] truncate">Rich skin tones</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('modern')}
-            className="group relative overflow-hidden rounded-xl p-2 glass-panel hover:border-white/30 text-left transition-all active:scale-95"
+            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-4 h-4 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center text-[9px]">
-                ✨
-              </div>
-              <span className="text-[11px] font-medium text-white/90 group-hover:text-white truncate">Modern Art</span>
-            </div>
-            <p className="text-[9px] text-white/50 line-clamp-1">Vivid chromatic</p>
+            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Modern Art</div>
+            <p className="text-[11px] text-[#565051] truncate">Chromatic study</p>
           </button>
         </div>
       </footer>

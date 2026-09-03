@@ -20,29 +20,18 @@ interface LightroomStudioProps {
 
 type TabType = 'light' | 'color' | 'effects' | 'detail' | 'curves' | 'presets'
 
-const HSL_COLORS: Record<ColorChannel, { name: string; bg: string }> = {
-  red: { name: 'Red', bg: '#ef4444' },
-  orange: { name: 'Orange', bg: '#f97316' },
-  yellow: { name: 'Yellow', bg: '#eab308' },
-  green: { name: 'Green', bg: '#22c55e' },
-  aqua: { name: 'Aqua', bg: '#06b6d4' },
-  blue: { name: 'Blue', bg: '#3b82f6' },
-  purple: { name: 'Purple', bg: '#a855f7' },
-  magenta: { name: 'Magenta', bg: '#ec4899' },
-}
-
 export const LightroomStudio: React.FC<LightroomStudioProps> = ({
   adjustments,
   onChange,
-  onReset
+  onReset,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('light')
   const [selectedHslChannel, setSelectedHslChannel] = useState<ColorChannel>('red')
   const [selectedCurveChannel, setSelectedCurveChannel] = useState<'rgb' | 'red' | 'green' | 'blue'>('rgb')
   const [customPresets, setCustomPresets] = useState<Preset[]>(() => {
     try {
-      const saved = localStorage.getItem('artei_custom_presets')
-      return saved ? JSON.parse(saved) : []
+      const stored = localStorage.getItem('artei_custom_presets')
+      return stored ? JSON.parse(stored) : []
     } catch {
       return []
     }
@@ -79,7 +68,6 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     onChange({
       ...adjustments,
       ...preset.adjustments,
-      // preserve geometry/crop
       straighten: adjustments.straighten,
       rotation: adjustments.rotation,
       flipH: adjustments.flipH,
@@ -105,7 +93,6 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     setIsSavingPreset(false)
   }
 
-  // Curve control point update
   const handleCurveChange = (pointIdx: number, yVal: number) => {
     const channel = selectedCurveChannel
     const currentPoints = [...adjustments.curves[channel]]
@@ -122,9 +109,9 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
   }
 
   return (
-    <div className="w-full flex flex-col bg-[#121316] border-t border-white/10 select-none">
-      {/* Category Tabs (Lightroom Mobile Dock) */}
-      <div className="flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-white/5 no-scrollbar justify-start sm:justify-center">
+    <div className="w-full flex flex-col bg-[#faf8f8] border-t border-[#e3dbdc] select-none text-[#0f0b0c]">
+      {/* Category Tabs */}
+      <div className="flex items-center gap-1 overflow-x-auto px-3 py-1.5 border-b border-[#e3dbdc] no-scrollbar justify-start sm:justify-center">
         {[
           { id: 'light', label: 'Light', icon: Sun },
           { id: 'color', label: 'Color & HSL', icon: Palette },
@@ -139,10 +126,10 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 squircle-full text-xs font-medium whitespace-nowrap transition-all active:scale-95 ${
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-normal transition-colors cursor-pointer border ${
                 isActive
-                  ? 'bg-white text-black font-semibold shadow-md'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'border-[#0f0b0c] bg-[#0f0b0c] text-[#faf8f8]'
+                  : 'border-transparent text-[#565051] hover:text-[#0f0b0c] hover:border-[#e3dbdc]'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -151,23 +138,24 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           )
         })}
 
-        <div className="w-px h-5 bg-white/10 mx-1 shrink-0" />
+        <div className="h-4 w-px bg-[#e3dbdc] mx-1 shrink-0" />
 
+        {/* Global Reset */}
         <button
           onClick={onReset}
-          className="flex items-center gap-1 px-2.5 py-1.5 squircle-full text-xs text-white/40 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
-          title="Reset All Adjustments"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-normal border border-transparent hover:border-[#e3dbdc] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer shrink-0"
+          title="Reset all adjustments to zero"
         >
           <RotateCcw className="w-3 h-3" />
-          <span className="hidden sm:inline">Reset</span>
+          <span>Reset</span>
         </button>
       </div>
 
-      {/* Slider Controls Drawer */}
-      <div className="p-3 sm:p-4 max-w-xl mx-auto w-full max-h-52 sm:max-h-60 overflow-y-auto no-scrollbar flex flex-col gap-3">
-        {/* --- LIGHT CONTROLS --- */}
+      {/* Tab Panels */}
+      <div className="p-3 sm:p-4 max-w-xl mx-auto w-full max-h-[36vh] sm:max-h-[38vh] overflow-y-auto no-scrollbar">
+        {/* LIGHT CONTROLS */}
         {activeTab === 'light' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <SliderRow
               label="Exposure"
               value={adjustments.exposure}
@@ -222,11 +210,11 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           </div>
         )}
 
-        {/* --- COLOR & HSL CONTROLS --- */}
+        {/* COLOR & HSL */}
         {activeTab === 'color' && (
-          <div className="flex flex-col gap-3.5">
-            {/* Global Color Sliders */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
+            {/* Global Temperature / Tint / Vibrance / Sat */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-2 border-b border-[#e3dbdc]">
               <SliderRow
                 label="Temp (Warmth)"
                 value={adjustments.temp}
@@ -237,7 +225,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                 onReset={() => updateAdj('temp', 0)}
               />
               <SliderRow
-                label="Tint"
+                label="Tint (Green/Magenta)"
                 value={adjustments.tint}
                 min={-100}
                 max={100}
@@ -263,55 +251,55 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               />
             </div>
 
-            {/* HSL Color Mixer Section */}
-            <div className="pt-2 border-t border-white/10">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
-                  HSL Color Mixer
+            {/* 8-Channel HSL Color Mixer */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-xs text-[#565051] uppercase tracking-wider font-normal">
+                  8-Channel HSL Mixer
                 </span>
-                <span className="text-[10px] text-white/40">Select color channel to adjust</span>
+                <span className="capitalize text-[#0f0b0c] text-xs font-normal">
+                  {selectedHslChannel}
+                </span>
               </div>
 
-              {/* 8 Color Pills */}
-              <div className="flex items-center justify-between gap-1 mb-3">
+              {/* Color channel selector buttons */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
                 {DEFAULT_HSL_CHANNELS.map((ch) => {
-                  const info = HSL_COLORS[ch]
                   const isSelected = selectedHslChannel === ch
-                  const hasAdj =
-                    adjustments.hsl[ch]?.hue !== 0 ||
-                    adjustments.hsl[ch]?.sat !== 0 ||
-                    adjustments.hsl[ch]?.lum !== 0
-
+                  const hexColors: Record<ColorChannel, string> = {
+                    red: '#e11d48',
+                    orange: '#f97316',
+                    yellow: '#eab308',
+                    green: '#22c55e',
+                    aqua: '#06b6d4',
+                    blue: '#3b82f6',
+                    purple: '#a855f7',
+                    magenta: '#ec4899',
+                  }
                   return (
                     <button
                       key={ch}
                       onClick={() => setSelectedHslChannel(ch)}
-                      className={`flex-1 py-1.5 rounded-xl flex flex-col items-center gap-1 transition-all ${
+                      className={`flex items-center gap-1 px-2.5 py-1 text-xs transition-colors cursor-pointer border ${
                         isSelected
-                          ? 'bg-white/15 ring-2 ring-white/50 scale-105'
-                          : 'hover:bg-white/5'
+                          ? 'border-[#0f0b0c] bg-white text-[#0f0b0c]'
+                          : 'border-[#e3dbdc] bg-[#faf8f8] hover:border-[#34292a] text-[#565051]'
                       }`}
                     >
-                      <div
-                        className="w-3.5 h-3.5 rounded-full relative"
-                        style={{ backgroundColor: info.bg }}
-                      >
-                        {hasAdj && (
-                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white ring-1 ring-black" />
-                        )}
-                      </div>
-                      <span className="text-[9px] text-white/70 font-mono capitalize">
-                        {ch.slice(0, 3)}
-                      </span>
+                      <span
+                        className="w-2 h-2"
+                        style={{ backgroundColor: hexColors[ch] }}
+                      />
+                      <span className="capitalize text-[11px]">{ch}</span>
                     </button>
                   )
                 })}
               </div>
 
-              {/* Sliders for Selected HSL Channel */}
-              <div className="flex flex-col gap-2 bg-white/[0.03] p-2.5 rounded-2xl border border-white/5">
+              {/* HSL Sliders for active channel */}
+              <div className="flex flex-col gap-2 pt-1">
                 <SliderRow
-                  label={`${HSL_COLORS[selectedHslChannel].name} Hue`}
+                  label={`${selectedHslChannel} Hue`}
                   value={adjustments.hsl[selectedHslChannel]?.hue || 0}
                   min={-100}
                   max={100}
@@ -319,7 +307,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                   onReset={() => updateHsl(selectedHslChannel, 'hue', 0)}
                 />
                 <SliderRow
-                  label={`${HSL_COLORS[selectedHslChannel].name} Saturation`}
+                  label={`${selectedHslChannel} Saturation`}
                   value={adjustments.hsl[selectedHslChannel]?.sat || 0}
                   min={-100}
                   max={100}
@@ -327,7 +315,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                   onReset={() => updateHsl(selectedHslChannel, 'sat', 0)}
                 />
                 <SliderRow
-                  label={`${HSL_COLORS[selectedHslChannel].name} Luminance`}
+                  label={`${selectedHslChannel} Luminance`}
                   value={adjustments.hsl[selectedHslChannel]?.lum || 0}
                   min={-100}
                   max={100}
@@ -337,63 +325,56 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               </div>
             </div>
 
-            {/* Split Toning / Color Grading */}
-            <div className="pt-2 border-t border-white/10">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-white/60 mb-2 block">
-                Color Grading (Split Toning)
+            {/* Split Toning */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-[#e3dbdc]">
+              <span className="text-xs text-[#565051] uppercase tracking-wider font-normal">
+                Split Toning
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white/[0.03] p-2 rounded-2xl border border-white/5 flex flex-col gap-2">
-                  <span className="text-[10px] font-medium text-white/70">Shadows Tint</span>
-                  <SliderRow
-                    label="Hue"
-                    value={adjustments.colorGrading.shadows.hue}
-                    min={0}
-                    max={360}
-                    unit="°"
-                    onChange={(v) => updateSplitTone('shadows', 'hue', v)}
-                    onReset={() => updateSplitTone('shadows', 'hue', 0)}
-                  />
-                  <SliderRow
-                    label="Amount"
-                    value={adjustments.colorGrading.shadows.sat}
-                    min={0}
-                    max={100}
-                    onChange={(v) => updateSplitTone('shadows', 'sat', v)}
-                    onReset={() => updateSplitTone('shadows', 'sat', 0)}
-                  />
-                </div>
-
-                <div className="bg-white/[0.03] p-2 rounded-2xl border border-white/5 flex flex-col gap-2">
-                  <span className="text-[10px] font-medium text-white/70">Highlights Tint</span>
-                  <SliderRow
-                    label="Hue"
-                    value={adjustments.colorGrading.highlights.hue}
-                    min={0}
-                    max={360}
-                    unit="°"
-                    onChange={(v) => updateSplitTone('highlights', 'hue', v)}
-                    onReset={() => updateSplitTone('highlights', 'hue', 0)}
-                  />
-                  <SliderRow
-                    label="Amount"
-                    value={adjustments.colorGrading.highlights.sat}
-                    min={0}
-                    max={100}
-                    onChange={(v) => updateSplitTone('highlights', 'sat', v)}
-                    onReset={() => updateSplitTone('highlights', 'sat', 0)}
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <SliderRow
+                  label="Shadows Hue"
+                  value={adjustments.colorGrading.shadows.hue}
+                  min={0}
+                  max={360}
+                  unit="°"
+                  onChange={(v) => updateSplitTone('shadows', 'hue', v)}
+                  onReset={() => updateSplitTone('shadows', 'hue', 0)}
+                />
+                <SliderRow
+                  label="Shadows Amount"
+                  value={adjustments.colorGrading.shadows.sat}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSplitTone('shadows', 'sat', v)}
+                  onReset={() => updateSplitTone('shadows', 'sat', 0)}
+                />
+                <SliderRow
+                  label="Highlights Hue"
+                  value={adjustments.colorGrading.highlights.hue}
+                  min={0}
+                  max={360}
+                  unit="°"
+                  onChange={(v) => updateSplitTone('highlights', 'hue', v)}
+                  onReset={() => updateSplitTone('highlights', 'hue', 0)}
+                />
+                <SliderRow
+                  label="Highlights Amount"
+                  value={adjustments.colorGrading.highlights.sat}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSplitTone('highlights', 'sat', v)}
+                  onReset={() => updateSplitTone('highlights', 'sat', 0)}
+                />
               </div>
             </div>
           </div>
         )}
 
-        {/* --- EFFECTS CONTROLS --- */}
+        {/* EFFECTS CONTROLS */}
         {activeTab === 'effects' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <SliderRow
-              label="Clarity (Midtone Contrast)"
+              label="Clarity"
               value={adjustments.clarity}
               min={-100}
               max={100}
@@ -435,9 +416,9 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           </div>
         )}
 
-        {/* --- DETAIL CONTROLS --- */}
+        {/* DETAIL CONTROLS */}
         {activeTab === 'detail' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <SliderRow
               label="Sharpening"
               value={adjustments.sharpen}
@@ -457,24 +438,24 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           </div>
         )}
 
-        {/* --- TONE CURVES --- */}
+        {/* TONE CURVES */}
         {activeTab === 'curves' && (
           <div className="flex flex-col gap-3 items-center">
             {/* Channel Switcher */}
-            <div className="flex items-center gap-1.5 p-1 rounded-full bg-white/5">
+            <div className="flex items-center gap-1 border border-[#e3dbdc] p-0.5 bg-white">
               {[
-                { id: 'rgb', label: 'RGB', color: 'text-white' },
-                { id: 'red', label: 'Red', color: 'text-red-400' },
-                { id: 'green', label: 'Green', color: 'text-green-400' },
-                { id: 'blue', label: 'Blue', color: 'text-blue-400' },
+                { id: 'rgb', label: 'RGB', color: 'text-[#0f0b0c]' },
+                { id: 'red', label: 'Red', color: 'text-red-600' },
+                { id: 'green', label: 'Green', color: 'text-green-700' },
+                { id: 'blue', label: 'Blue', color: 'text-blue-700' },
               ].map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedCurveChannel(c.id as any)}
-                  className={`px-3 py-1 squircle-full text-xs font-medium transition-all ${
+                  className={`px-3 py-1 text-xs transition-colors cursor-pointer border ${
                     selectedCurveChannel === c.id
-                      ? 'bg-white text-black font-semibold'
-                      : `${c.color} hover:bg-white/10`
+                      ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                      : `bg-transparent border-transparent ${c.color} hover:border-[#e3dbdc]`
                   }`}
                 >
                   {c.label}
@@ -482,9 +463,9 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               ))}
             </div>
 
-            {/* Visual Curve Representation & Sliders */}
-            <div className="w-full max-w-sm bg-black/40 rounded-2xl p-3 border border-white/10 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[11px] text-white/60">
+            {/* Visual Curve Sliders */}
+            <div className="w-full max-w-sm bg-white p-3 border border-[#e3dbdc] flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[11px] text-[#565051]">
                 <span>Shadows Point</span>
                 <span>Highlights Point</span>
               </div>
@@ -510,20 +491,20 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           </div>
         )}
 
-        {/* --- PRESETS CATALOG --- */}
+        {/* PRESETS CATALOG */}
         {activeTab === 'presets' && (
           <div className="flex flex-col gap-3">
             {/* Save Custom Preset Button */}
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
+              <span className="text-[11px] uppercase tracking-wider text-[#565051] font-normal">
                 Lightroom Catalog
               </span>
               {!isSavingPreset ? (
                 <button
                   onClick={() => setIsSavingPreset(true)}
-                  className="flex items-center gap-1 text-xs text-[oklch(var(--button-green))] hover:underline font-medium"
+                  className="flex items-center gap-1 text-xs text-[#0f0b0c] hover:text-[#34292a] font-normal underline cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                   Save as Preset
                 </button>
               ) : (
@@ -533,18 +514,18 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                     placeholder="Preset Name..."
                     value={newPresetName}
                     onChange={(e) => setNewPresetName(e.target.value)}
-                    className="px-2 py-1 rounded-lg bg-white/10 border border-white/20 text-xs text-white focus:outline-none"
+                    className="px-2 py-1 bg-white border border-[#e3dbdc] text-xs text-[#0f0b0c] focus:border-[#34292a] focus:outline-none"
                     autoFocus
                   />
                   <button
                     onClick={handleSaveCustomPreset}
-                    className="px-2 py-1 rounded-lg bg-[oklch(var(--button-green))] text-white text-xs font-medium"
+                    className="px-2.5 py-1 bg-[#0f0b0c] text-[#faf8f8] text-xs font-normal border border-[#0f0b0c]"
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setIsSavingPreset(false)}
-                    className="px-1.5 py-1 text-white/50 text-xs"
+                    className="px-1.5 py-1 text-[#565051] text-xs"
                   >
                     Cancel
                   </button>
@@ -552,47 +533,26 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               )}
             </div>
 
-            {/* Custom User Presets (if any) */}
-            {customPresets.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {customPresets.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleApplyPreset(p)}
-                    className="p-2.5 rounded-xl glass-panel text-left hover:border-white/30 transition-all active:scale-95"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-white">{p.name}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
-                        User
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-white/50">Custom look</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Factory Lightroom Presets */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {LIGHTROOM_PRESETS.map((preset) => (
+            {/* Presets Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {[...customPresets, ...LIGHTROOM_PRESETS].map((preset) => (
                 <button
                   key={preset.id}
                   onClick={() => handleApplyPreset(preset)}
-                  className="p-2.5 rounded-2xl glass-panel text-left hover:border-white/30 transition-all active:scale-95 group"
+                  className="group relative flex flex-col p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-white/90 group-hover:text-white">
+                    <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
                       {preset.name}
                     </span>
                     {preset.badge && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/70 font-mono">
+                      <span className="text-[9px] px-1 py-0.2 border border-[#e3dbdc] text-[#565051] font-mono uppercase">
                         {preset.badge}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-white/40 block truncate">
-                    {preset.category} grade
+                  <span className="text-[10px] text-[#565051] line-clamp-1">
+                    {preset.category}
                   </span>
                 </button>
               ))}
@@ -633,21 +593,21 @@ const SliderRow: React.FC<SliderRowProps> = ({
   const displayVal = format ? format(value) : `${value > 0 && min < 0 ? `+${value}` : value}${unit}`
 
   return (
-    <div className="flex flex-col gap-1 w-full">
+    <div className="flex flex-col gap-0.5 w-full">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-white/75 font-medium tracking-tight text-[11px] sm:text-xs flex items-center gap-1.5">
+        <span className="text-[#0f0b0c] font-normal tracking-tight text-[11px] sm:text-xs flex items-center gap-1.5">
           {accent && (
             <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: accent === 'orange' ? '#f97316' : accent === 'magenta' ? '#ec4899' : accent }}
+              className="w-1.5 h-1.5"
+              style={{ backgroundColor: accent === 'orange' ? '#ea580c' : accent === 'magenta' ? '#db2777' : accent }}
             />
           )}
           {label}
         </span>
         <button
           onClick={onReset}
-          className="font-mono text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer px-1 rounded hover:bg-white/10"
-          title="Double click to reset to 0"
+          className="font-mono text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-1 hover:bg-[#e3dbdc]/40"
+          title="Click to reset to 0"
         >
           {displayVal}
         </button>
@@ -663,9 +623,8 @@ const SliderRow: React.FC<SliderRowProps> = ({
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="w-full lr-slider"
         />
-        {/* Center Zero Tick for Bi-directional Sliders */}
         {min < 0 && max > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 w-0.5 h-2 bg-white/30 pointer-events-none" />
+          <div className="absolute left-1/2 -translate-x-1/2 w-px h-2 bg-[#565051]/40 pointer-events-none" />
         )}
       </div>
     </div>
