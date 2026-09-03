@@ -3,10 +3,13 @@ import {
   ArrowLeft,
   Crop,
   Download,
+  Share2,
   Undo2,
   Redo2,
   Eye,
-  Activity
+  Activity,
+  Clock,
+  ChevronDown
 } from 'lucide-react'
 import { LightroomAdjustments } from '../types'
 import { getDefaultAdjustments } from '../lib/presets'
@@ -15,22 +18,41 @@ import { LightroomStudio } from './LightroomStudio'
 import { CropStudio } from './CropStudio'
 import { ExportModal } from './ExportModal'
 import { Histogram } from './Histogram'
+import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
+import {
+  getArtworkHistory,
+  saveArtworkToHistory,
+  deleteArtworkFromHistory,
+  clearArtworkHistory,
+  HistoryArtwork
+} from '../lib/history-storage'
 
 interface EditorViewProps {
   initialImageUrl: string
+  initialAdjustments?: LightroomAdjustments
+  initialArtworkId?: string
   onBack: () => void
 }
 
-export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack }) => {
-  // Base image (can be modified by crop)
+export const EditorView: React.FC<EditorViewProps> = ({
+  initialImageUrl,
+  initialAdjustments,
+  initialArtworkId,
+  onBack
+}) => {
+  const [artworkId, setArtworkId] = useState(initialArtworkId || `art_${Date.now()}`)
   const [baseImage, setBaseImage] = useState<HTMLImageElement | HTMLCanvasElement | null>(null)
   const [isCropping, setIsCropping] = useState(false)
 
   // Current adjustments
-  const [adjustments, setAdjustments] = useState<LightroomAdjustments>(getDefaultAdjustments())
+  const [adjustments, setAdjustments] = useState<LightroomAdjustments>(
+    initialAdjustments || getDefaultAdjustments()
+  )
 
   // Undo / Redo History Stack
-  const [history, setHistory] = useState<LightroomAdjustments[]>([getDefaultAdjustments()])
+  const [history, setHistory] = useState<LightroomAdjustments[]>([
+    initialAdjustments || getDefaultAdjustments()
+  ])
   const [historyIndex, setHistoryIndex] = useState(0)
 
   // Before / After Press & Hold Toggle
@@ -43,17 +65,29 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
   // Export Modal
   const [showExportModal, setShowExportModal] = useState(false)
 
+  // History Drawer Toggle & Items
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
+  const [historyItems, setHistoryItems] = useState<HistoryArtwork[]>([])
+
   // Viewport Pan & Zoom
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
-
-  // Touch pinch-to-zoom tracking
   const [touchDistance, setTouchDistance] = useState<number | null>(null)
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Load History items
+  const loadHistory = async () => {
+    const items = await getArtworkHistory()
+    setHistoryItems(items)
+  }
+
+  useEffect(() => {
+    loadHistory()
+  }, [])
 
   // Load initial image into baseImage
   useEffect(() => {
@@ -81,11 +115,9 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
     })
   }
 
-  // Record history snapshot (debounced or on user pause)
+  // Record adjustments history
   const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
     setAdjustments(nextAdj)
-
-    // Append to history stack
     const newHistory = history.slice(0, historyIndex + 1)
     newHistory.push(nextAdj)
     if (newHistory.length > 30) newHistory.shift()
@@ -147,11 +179,72 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
     renderCanvas()
   }, [renderCanvas])
 
+  // Save current snapshot into persistent history
+  const saveSnapshotToHistory = () => {
+    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.88)
+    saveArtworkToHistory({
+      id: artworkId,
+      title: 'Edited Artwork',
+      dataUrl,
+      originalUrl: initialImageUrl,
+      adjustments,
+      timestamp: Date.now(),
+      width: canvas.width,
+      height: canvas.height
+    })
+    loadHistory()
+  }
+
+  // 1-Click Direct Download Button
+  const handleDirectDownload = () => {
+    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `artei_edit_${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+
+    saveSnapshotToHistory()
+  }
+
   // Crop completion callback
   const handleCropComplete = (croppedCanvas: HTMLCanvasElement) => {
     setBaseImage(croppedCanvas)
     setIsCropping(false)
     resetViewport(croppedCanvas.width, croppedCanvas.height)
+    saveSnapshotToHistory()
+  }
+
+  // Select another artwork from History carousel
+  const handleSelectHistoryArtwork = (item: HistoryArtwork) => {
+    const img = new Image()
+    img.onload = () => {
+      setBaseImage(img)
+      setArtworkId(item.id)
+      if (item.adjustments) {
+        setAdjustments(item.adjustments)
+        setHistory([item.adjustments])
+        setHistoryIndex(0)
+      }
+      resetViewport(img.naturalWidth, img.naturalHeight)
+      setShowHistoryDrawer(false)
+    }
+    img.src = item.originalUrl || item.dataUrl
+  }
+
+  const handleDeleteHistoryItem = async (id: string) => {
+    await deleteArtworkFromHistory(id)
+    setHistoryItems((prev) => prev.filter((i) => i.id !== id))
+  }
+
+  const handleClearAllHistory = async () => {
+    await clearArtworkHistory()
+    setHistoryItems([])
   }
 
   // Pan & Zoom gestures
@@ -179,26 +272,28 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
     setIsPanning(false)
   }
 
-  // Double tap / double click to reset zoom
   const handleDoubleClick = () => {
     if (baseImage) {
-      const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
-      const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
-      resetViewport(w, h)
+      const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+      const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+      resetViewport(imgW, imgH)
     }
   }
 
-  const w = baseImage ? ((baseImage as HTMLImageElement).naturalWidth || baseImage.width) : 0
-  const h = baseImage ? ((baseImage as HTMLImageElement).naturalHeight || baseImage.height) : 0
+  const w = baseImage ? (baseImage as HTMLImageElement).naturalWidth || baseImage.width : 0
+  const h = baseImage ? (baseImage as HTMLImageElement).naturalHeight || baseImage.height : 0
 
   return (
-    <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#0c0d0e] select-none">
+    <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#0c0d0e] select-none relative">
       {/* Top App Bar */}
-      <header className="flex items-center justify-between px-3.5 py-2.5 z-30 glass-panel border-b border-white/10 shrink-0">
-        {/* Left Section: Back & Logo */}
-        <div className="flex items-center gap-2.5">
+      <header className="flex items-center justify-between px-3 py-2 z-30 glass-panel border-b border-white/10 shrink-0">
+        {/* Left Section: Back, Logo & History Drawer Button */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={onBack}
+            onClick={() => {
+              saveSnapshotToHistory()
+              onBack()
+            }}
             className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
             title="Back to Upload"
           >
@@ -207,9 +302,25 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
           <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center p-1 shadow">
             <img src="/artei-logo.svg" alt="ARTEI" className="w-full h-full object-contain" />
           </div>
-          <span className="text-xs font-semibold tracking-wider text-white hidden sm:inline">
-            ARTEI STUDIO
-          </span>
+
+          {/* History Drawer Toggle Button */}
+          <button
+            onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 squircle-full text-xs font-medium transition-all ${
+              showHistoryDrawer
+                ? 'bg-white text-black font-semibold shadow'
+                : 'glass-pill text-white/80 hover:text-white'
+            }`}
+            title="View edit history"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">History</span>
+            {historyItems.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+                {historyItems.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Center Section: Undo/Redo & Crop Launcher */}
@@ -234,7 +345,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
           {/* Crop & Perspective Tool Button */}
           <button
             onClick={() => setIsCropping(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 squircle-full glass-pill text-xs font-medium text-white hover:bg-white/15 transition-transform active:scale-95 ml-1"
+            className="flex items-center gap-1.5 px-3 py-1.5 squircle-full glass-pill text-xs font-medium text-white hover:bg-white/15 transition-transform active:scale-95 ml-0.5"
             title="Perspective Scanner Crop"
           >
             <Crop className="w-3.5 h-3.5 text-white" />
@@ -249,7 +360,9 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
             onTouchStart={() => setShowBefore(true)}
             onTouchEnd={() => setShowBefore(false)}
             className={`flex items-center gap-1 px-2.5 py-1.5 squircle-full text-xs font-medium transition-all ${
-              showBefore ? 'bg-white text-black font-bold scale-105' : 'glass-pill text-white/70 hover:text-white'
+              showBefore
+                ? 'bg-white text-black font-bold scale-105'
+                : 'glass-pill text-white/70 hover:text-white'
             }`}
             title="Hold to see original unedited photo"
           >
@@ -269,17 +382,55 @@ export const EditorView: React.FC<EditorViewProps> = ({ initialImageUrl, onBack 
           </button>
         </div>
 
-        {/* Right Section: Export */}
-        <div className="flex items-center gap-2">
+        {/* Right Section: Direct Download & Export Dialog */}
+        <div className="flex items-center gap-1.5">
+          {/* Direct 1-Click Download Button */}
           <button
-            onClick={() => setShowExportModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white text-xs font-medium shadow-md transition-transform active:scale-95"
+            onClick={handleDirectDownload}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 squircle-full bg-[oklch(var(--button-green))] hover:bg-[oklch(var(--button-green-hover))] text-white text-xs font-semibold shadow-md transition-transform active:scale-95"
+            title="Direct 1-Click Download"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="font-semibold">Export</span>
+            <span>Download</span>
+          </button>
+
+          {/* Export Options Modal Button */}
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="w-8 h-8 squircle-full glass-pill flex items-center justify-center text-white/80 hover:text-white transition-transform active:scale-95"
+            title="Export Options (PNG, WebP, Quality)"
+          >
+            <Share2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </header>
+
+      {/* History Drawer Overlay (Slide-down from top bar) */}
+      {showHistoryDrawer && (
+        <div className="absolute top-12 left-0 right-0 z-40 bg-[#141619]/95 backdrop-blur-xl border-b border-white/10 p-3 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="max-w-xl mx-auto flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white/90">Switch / Re-edit Artwork</span>
+              <button
+                onClick={() => setShowHistoryDrawer(false)}
+                className="text-white/50 hover:text-white text-xs p-1"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+            {historyItems.length > 0 ? (
+              <ArtworkHistoryCarousel
+                items={historyItems}
+                onSelect={handleSelectHistoryArtwork}
+                onDelete={handleDeleteHistoryItem}
+                onClearAll={handleClearAllHistory}
+              />
+            ) : (
+              <div className="text-xs text-white/40 text-center py-4">No edit history yet</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Center Image Viewport (Strictly non-scrollable, gesture pan/zoom) */}
       <div
