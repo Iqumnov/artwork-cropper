@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { X, Download, Copy, Check, RotateCcw } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { X, Download, Copy, Check, RotateCcw, LayoutTemplate } from 'lucide-react'
+import { ArtworkInfo } from '../types'
 
 interface ExportModalProps {
   isOpen: boolean
@@ -7,6 +8,90 @@ interface ExportModalProps {
   canvas: HTMLCanvasElement | null
   originalFileName?: string
   artworkTitle?: string
+  artworkInfo?: ArtworkInfo
+  onUpdateArtworkInfo?: (info: ArtworkInfo) => void
+}
+
+function createPostCanvas(
+  artworkCanvas: HTMLCanvasElement,
+  info: ArtworkInfo
+): HTMLCanvasElement {
+  const postW = 1200
+  const postH = 1600
+
+  const canvas = document.createElement('canvas')
+  canvas.width = postW
+  canvas.height = postH
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return artworkCanvas
+
+  // Background matching design system #faf8f8
+  ctx.fillStyle = '#faf8f8'
+  ctx.fillRect(0, 0, postW, postH)
+
+  // Artwork Container: 74% of total height, with 64px margins
+  const marginX = 64
+  const marginTop = 64
+  const artAreaW = postW - marginX * 2
+  const artAreaH = Math.round(postH * 0.72)
+
+  // Fit artwork preserving aspect ratio
+  const artAspect = artworkCanvas.width / artworkCanvas.height
+  const containerAspect = artAreaW / artAreaH
+
+  let drawW = artAreaW
+  let drawH = artAreaH
+  if (artAspect > containerAspect) {
+    drawW = artAreaW
+    drawH = Math.round(artAreaW / artAspect)
+  } else {
+    drawH = artAreaH
+    drawW = Math.round(artAreaH * artAspect)
+  }
+
+  const drawX = marginX + Math.round((artAreaW - drawW) / 2)
+  const drawY = marginTop + Math.round((artAreaH - drawH) / 2)
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(artworkCanvas, drawX, drawY, drawW, drawH)
+
+  // Captions Area below artwork
+  const captionsStartY = marginTop + artAreaH + 48
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  let currentY = captionsStartY
+
+  // Title: EBGaramond, bold, 38px, color #0f0b0c
+  if (info.title && info.title.trim()) {
+    ctx.font = '600 38px "EBGaramond", Georgia, serif'
+    ctx.fillStyle = '#0f0b0c'
+    ctx.fillText(info.title.trim(), postW / 2, currentY)
+    currentY += 46
+  }
+
+  // Artist: EBGaramond, normal, 26px, color #565051
+  if (info.artist && info.artist.trim()) {
+    ctx.font = '400 26px "EBGaramond", Georgia, serif'
+    ctx.fillStyle = '#565051'
+    ctx.fillText(info.artist.trim(), postW / 2, currentY)
+    currentY += 38
+  }
+
+  // Details: Medium · Dimensions · Year
+  const detailsParts: string[] = []
+  if (info.medium && info.medium.trim()) detailsParts.push(info.medium.trim())
+  if (info.dimensions && info.dimensions.trim()) detailsParts.push(info.dimensions.trim())
+  if (info.year && info.year.trim()) detailsParts.push(info.year.trim())
+
+  if (detailsParts.length > 0) {
+    ctx.font = '400 20px "EBGaramond", Georgia, serif'
+    ctx.fillStyle = '#565051'
+    ctx.fillText(detailsParts.join(' · '), postW / 2, currentY)
+  }
+
+  return canvas
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -15,11 +100,43 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   canvas,
   originalFileName,
   artworkTitle,
+  artworkInfo,
+  onUpdateArtworkInfo,
 }) => {
   const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg')
   const [quality, setQuality] = useState(0.92)
   const [copied, setCopied] = useState(false)
   const [estimatedSize, setEstimatedSize] = useState<string>('')
+  const [isExportAsPost, setIsExportAsPost] = useState(false)
+
+  // Local editable artwork fields
+  const [localInfo, setLocalInfo] = useState<ArtworkInfo>(() => ({
+    title: artworkInfo?.title || artworkTitle || '',
+    artist: artworkInfo?.artist || '',
+    medium: artworkInfo?.medium || '',
+    dimensions: artworkInfo?.dimensions || '',
+    year: artworkInfo?.year || ''
+  }))
+
+  useEffect(() => {
+    if (isOpen && artworkInfo) {
+      setLocalInfo({
+        title: artworkInfo.title || artworkTitle || '',
+        artist: artworkInfo.artist || '',
+        medium: artworkInfo.medium || '',
+        dimensions: artworkInfo.dimensions || '',
+        year: artworkInfo.year || ''
+      })
+    }
+  }, [isOpen, artworkInfo, artworkTitle])
+
+  const handleInfoChange = (field: keyof ArtworkInfo, value: string) => {
+    const updated = { ...localInfo, [field]: value }
+    setLocalInfo(updated)
+    if (onUpdateArtworkInfo) {
+      onUpdateArtworkInfo(updated)
+    }
+  }
 
   // Clean original file name (remove extension)
   const getCleanOriginalName = () => {
@@ -29,8 +146,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   // Initial file name: prioritizes artworkTitle, then originalFileName
   const getDefaultName = () => {
-    if (artworkTitle && artworkTitle.trim().length > 0) {
-      return artworkTitle.trim()
+    const title = localInfo.title || artworkTitle
+    if (title && title.trim().length > 0) {
+      return title.trim()
     }
     return getCleanOriginalName()
   }
@@ -44,9 +162,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   }, [isOpen, artworkTitle, originalFileName])
 
+  // Get final active canvas (post canvas or direct artwork canvas)
+  const activeCanvas = useMemo(() => {
+    if (!canvas) return null
+    if (isExportAsPost) {
+      return createPostCanvas(canvas, localInfo)
+    }
+    return canvas
+  }, [canvas, isExportAsPost, localInfo])
+
   useEffect(() => {
-    if (!canvas || !isOpen) return
-    canvas.toBlob(
+    if (!activeCanvas || !isOpen) return
+    activeCanvas.toBlob(
       (blob) => {
         if (blob) {
           const kb = blob.size / 1024
@@ -60,21 +187,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       format,
       quality
     )
-  }, [canvas, format, quality, isOpen])
+  }, [activeCanvas, format, quality, isOpen])
 
   if (!isOpen || !canvas) return null
 
-  const width = canvas.width
-  const height = canvas.height
+  const width = activeCanvas ? activeCanvas.width : canvas.width
+  const height = activeCanvas ? activeCanvas.height : canvas.height
   const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
 
   const handleDownload = () => {
-    // Sanitize file name for filesystem safety
+    if (!activeCanvas) return
     const safeName = (fileName.trim() || getDefaultName()).replace(/[/\\?%*:|"<>]/g, '-')
-    const dataUrl = canvas.toDataURL(format, quality)
+    const suffix = isExportAsPost ? '_post' : ''
+    const dataUrl = activeCanvas.toDataURL(format, quality)
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `${safeName}.${ext}`
+    a.download = `${safeName}${suffix}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -86,8 +214,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }
 
   const handleCopyToClipboard = async () => {
+    if (!activeCanvas) return
     try {
-      canvas.toBlob(async (blob) => {
+      activeCanvas.toBlob(async (blob) => {
         if (!blob) return
         await navigator.clipboard.write([
           new ClipboardItem({
@@ -103,8 +232,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#faf8f8] border border-[#e3dbdc] p-5 sm:p-6 max-w-sm w-full shadow-xl flex flex-col gap-3.5 text-[#0f0b0c]">
+    <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-[#faf8f8] border border-[#e3dbdc] p-5 sm:p-6 max-w-md w-full shadow-xl flex flex-col gap-3.5 text-[#0f0b0c] max-h-[92vh] overflow-y-auto no-scrollbar">
         {/* Header without additional border */}
         <div className="flex items-center justify-between pb-1">
           <div>
@@ -112,7 +241,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               Экспорт работы
             </h3>
             <p className="text-xs text-[#565051] font-mono mt-0.5">
-              {width} × {height} px {estimatedSize ? `• ~${estimatedSize}` : ''}
+              {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ~${estimatedSize}` : ''}
             </p>
           </div>
           <button
@@ -122,6 +251,96 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Toggle: Export as Post (3:4) */}
+        <div className="flex items-center justify-between p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] transition-colors">
+          <div className="flex items-center gap-2">
+            <LayoutTemplate className="w-4 h-4 text-[#565051]" />
+            <div className="flex flex-col">
+              <span className="text-xs font-normal text-[#0f0b0c]">Экспортировать как пост</span>
+              <span className="text-[10px] text-[#565051]">Карточка 3:4 с подписью автора и техники</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsExportAsPost(!isExportAsPost)}
+            className={`w-10 h-5 border transition-colors flex items-center px-0.5 cursor-pointer ${
+              isExportAsPost ? 'bg-[#0f0b0c] border-[#0f0b0c]' : 'bg-[#e3dbdc] border-[#e3dbdc]'
+            }`}
+          >
+            <div
+              className={`w-3.5 h-3.5 bg-white transition-transform ${
+                isExportAsPost ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Artwork Metadata Fields (Visible when Export as Post is active) */}
+        {isExportAsPost && (
+          <div className="flex flex-col gap-2 p-3 bg-white border border-[#e3dbdc]">
+            <span className="text-[11px] font-normal uppercase tracking-wider text-[#565051]">
+              Данные для карточки поста
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[#565051]">Название работы</label>
+                <input
+                  type="text"
+                  value={localInfo.title}
+                  onChange={(e) => handleInfoChange('title', e.target.value)}
+                  placeholder="Название картины..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[#565051]">Автор</label>
+                <input
+                  type="text"
+                  value={localInfo.artist}
+                  onChange={(e) => handleInfoChange('artist', e.target.value)}
+                  placeholder="Имя автора..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[#565051]">Техника</label>
+                <input
+                  type="text"
+                  value={localInfo.medium || ''}
+                  onChange={(e) => handleInfoChange('medium', e.target.value)}
+                  placeholder="Холст, масло..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[#565051]">Размер</label>
+                <input
+                  type="text"
+                  value={localInfo.dimensions || ''}
+                  onChange={(e) => handleInfoChange('dimensions', e.target.value)}
+                  placeholder="80 × 60 см..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <label className="text-[10px] text-[#565051]">Год</label>
+                <input
+                  type="text"
+                  value={localInfo.year || ''}
+                  onChange={(e) => handleInfoChange('year', e.target.value)}
+                  placeholder="2024..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* File Name Field with Reset Button */}
         <div className="flex flex-col gap-1">
@@ -149,7 +368,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               className="flex-1 px-2.5 py-1.5 text-xs text-[#0f0b0c] bg-transparent outline-none border-none"
             />
             <span className="px-2 text-xs font-mono text-[#565051] select-none bg-[#faf8f8] border-l border-[#e3dbdc] py-1.5">
-              .{ext}
+              {isExportAsPost ? '_post' : ''}.{ext}
             </span>
           </div>
         </div>
@@ -216,7 +435,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             className="w-full py-2.5 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Скачать файл</span>
+            <span>Скачать {isExportAsPost ? 'карточку поста' : 'файл'}</span>
           </button>
 
           <button

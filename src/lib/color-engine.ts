@@ -1,5 +1,24 @@
 import { LightroomAdjustments, ColorChannel, ToneCurvePoint } from '../types'
 
+// Film grain precomputed Gaussian-like pseudo-random noise table
+const GRAIN_TABLE_SIZE = 8192
+const GRAIN_TABLE = new Float32Array(GRAIN_TABLE_SIZE)
+let grainTableInitialized = false
+
+function initGrainTable() {
+  if (grainTableInitialized) return
+  let seed = 42
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    return seed / 4294967296
+  }
+  for (let i = 0; i < GRAIN_TABLE_SIZE; i++) {
+    // 3 uniform random samples sum approximates Gaussian distribution (-1 to +1)
+    GRAIN_TABLE[i] = (rand() + rand() + rand() - 1.5) * 1.333
+  }
+  grainTableInitialized = true
+}
+
 // RGB to HSL and HSL to RGB conversion utilities
 export function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255
@@ -218,6 +237,13 @@ export function applyLightroomAdjustments(
   // Dehaze & Clarity
   const dehazeBoost = adjustments.dehaze / 100
   const clarityVal = adjustments.clarity / 100
+  const textureVal = (adjustments.texture || 0) / 100
+  const grainAmount = (adjustments.grain || 0) / 100
+  const noiseReductionVal = (adjustments.noiseReduction || 0) / 100
+
+  if (grainAmount > 0) {
+    initGrainTable()
+  }
 
   // Pixel Loop
   for (let i = 0; i < totalPixels; i++) {
@@ -281,13 +307,28 @@ export function applyLightroomAdjustments(
       b = contrastFactor * (b - 128) + 128
     }
 
-    // --- Dehaze & Clarity Midtone Contrast ---
-    if (dehazeBoost !== 0 || clarityVal !== 0) {
+    // --- Dehaze & Clarity & Texture ---
+    if (dehazeBoost !== 0 || clarityVal !== 0 || textureVal !== 0) {
       const midWeight = 1 - 2 * Math.abs(normLum - 0.5)
-      const clarityDelta = (clarityVal * 25 + dehazeBoost * 20) * midWeight
-      r += (r - 128) * (clarityDelta / 255)
-      g += (g - 128) * (clarityDelta / 255)
-      b += (b - 128) * (clarityDelta / 255)
+      // Clarity operates on midtones
+      const clarityDelta = (clarityVal * 28) * midWeight
+      // Dehaze removes haze: expands contrast, deepens black level
+      const dehazeDelta = (dehazeBoost * 32) * (1 - normLum * 0.4)
+      // Texture enhances subtle micro-contrast
+      const textureDelta = textureVal * 20 * (0.5 + midWeight * 0.5)
+
+      const combinedDelta = clarityDelta + dehazeDelta + textureDelta
+      r += (r - 128) * (combinedDelta / 255)
+      g += (g - 128) * (combinedDelta / 255)
+      b += (b - 128) * (combinedDelta / 255)
+
+      if (dehazeBoost !== 0) {
+        // Dehaze deepens shadow floor slightly
+        const floorDelta = dehazeBoost * 8 * (1 - normLum)
+        r -= floorDelta
+        g -= floorDelta
+        b -= floorDelta
+      }
     }
 
     // Clamp before color conversions
@@ -405,24 +446,39 @@ export function applyLightroomAdjustments(
       b = b * comp + lift * (1 - b / 255)
     }
 
+    // --- Film Grain ---
+    if (grainAmount > 0) {
+      // Grain is strongest in midtones (bell curve around 0.5) and tapers at pure black/white
+      const midWeight = 1 - 2 * Math.abs(normLum - 0.5)
+      const gIntensity = Math.max(0.25, midWeight) * grainAmount * 34
+      const noise = GRAIN_TABLE[(i * 7 + (i >> 2) * 13) % GRAIN_TABLE_SIZE] * gIntensity
+      r += noise
+      g += noise
+      b += noise
+    }
+
     // Final Output Clamping
     data[idx] = Math.max(0, Math.min(255, Math.round(r)))
     data[idx + 1] = Math.max(0, Math.min(255, Math.round(g)))
     data[idx + 2] = Math.max(0, Math.min(255, Math.round(b)))
   }
 
-  // Sharpen pass (if sharpen > 0)
-  if (adjustments.sharpen > 0) {
-    applySharpenFilter(imageData, adjustments.sharpen / 100)
+  // Combined Edge & Detail pass (Sharpen, Micro-Texture, Noise Reduction)
+  if (adjustments.sharpen > 0 || textureVal !== 0 || noiseReductionVal > 0) {
+    applyDetailEnhancements(imageData, adjustments.sharpen / 100, textureVal, noiseReductionVal)
   }
 }
 
-function applySharpenFilter(imageData: ImageData, amount: number) {
+function applyDetailEnhancements(
+  imageData: ImageData,
+  sharpenAmount: number,
+  textureAmount: number,
+  noiseReductionAmount: number
+) {
   const src = new Uint8ClampedArray(imageData.data)
   const data = imageData.data
   const w = imageData.width
   const h = imageData.height
-  const weight = amount * 0.8
 
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
@@ -436,7 +492,27 @@ function applySharpenFilter(imageData: ImageData, amount: number) {
         const right = src[(y * w + (x + 1)) * 4 + c]
 
         const laplacian = 4 * center - (top + bottom + left + right)
-        data[idx + c] = Math.max(0, Math.min(255, Math.round(center + laplacian * weight)))
+        const absLap = Math.abs(laplacian)
+        let delta = 0
+
+        // 1. Noise Reduction: Smooths flat low-contrast noise patches
+        if (noiseReductionAmount > 0 && absLap < 18) {
+          const avg = (top + bottom + left + right) * 0.25
+          const smoothFactor = noiseReductionAmount * (1 - absLap / 18) * 0.6
+          delta += (avg - center) * smoothFactor
+        }
+
+        // 2. Texture: Enhances fine micro-contrast without haloing high-contrast edges
+        if (textureAmount !== 0 && absLap >= 4 && absLap <= 50) {
+          delta += laplacian * (textureAmount * 0.45)
+        }
+
+        // 3. Sharpen: Sharpens visible edges
+        if (sharpenAmount > 0) {
+          delta += laplacian * (sharpenAmount * 0.75)
+        }
+
+        data[idx + c] = Math.max(0, Math.min(255, Math.round(center + delta)))
       }
     }
   }

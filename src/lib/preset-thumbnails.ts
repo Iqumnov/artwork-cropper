@@ -7,8 +7,8 @@ let baseLandscapeCanvas: HTMLCanvasElement | null = null
 let baseLandscapeLoaded = false
 let baseLandscapePromise: Promise<HTMLCanvasElement | null> | null = null
 
-const THUMB_W = 120
-const THUMB_H = 80
+const THUMB_W = 360
+const THUMB_H = 240
 
 /**
  * Loads the reference natural landscape image onto an offscreen canvas
@@ -30,6 +30,8 @@ function loadBaseLandscape(): Promise<HTMLCanvasElement | null> {
       canvas.height = THUMB_H
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
       if (ctx) {
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
         ctx.drawImage(img, 0, 0, THUMB_W, THUMB_H)
         baseLandscapeCanvas = canvas
         baseLandscapeLoaded = true
@@ -78,7 +80,7 @@ function loadBaseLandscape(): Promise<HTMLCanvasElement | null> {
         resolve(null)
       }
     }
-    img.src = '/nature_landscape.jpg'
+    img.src = '/nature_landscape.webp'
   })
 
   return baseLandscapePromise
@@ -116,7 +118,7 @@ export async function getPresetNatureThumbnail(preset: Preset): Promise<string> 
   applyLightroomAdjustments(imageData, merged)
   ctx.putImageData(imageData, 0, 0)
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+  const dataUrl = canvas.toDataURL('image/webp', 0.95)
   thumbnailCache.set(cacheKey, dataUrl)
   return dataUrl
 }

@@ -22,7 +22,6 @@ import { applyLightroomAdjustments } from '../lib/color-engine'
 import { warpPerspectiveCanvas, detectDocumentCorners } from '../lib/perspective-warp'
 import { LightroomStudio } from './LightroomStudio'
 import { ExportModal } from './ExportModal'
-import { PostModeView } from './PostModeView'
 import { WallViewModal } from './WallViewModal'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import {
@@ -77,17 +76,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
     )
   })
 
-  // Post Mode and Wall View Modal States
-  const [isPostModeOpen, setIsPostModeOpen] = useState(false)
+  // Wall View Modal State
   const [isWallModalOpen, setIsWallModalOpen] = useState(false)
   const [modalImageSrc, setModalImageSrc] = useState<string>('')
-
-  const handleOpenPostMode = () => {
-    renderCanvas(false)
-    const src = canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl
-    setModalImageSrc(src)
-    setIsPostModeOpen(true)
-  }
 
   const handleOpenWallView = () => {
     renderCanvas(false)
@@ -278,6 +269,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   // Fast low-overhead preview buffer for real-time 60 FPS slider dragging
   const previewSourceRef = useRef<HTMLCanvasElement | null>(null)
+  const fastOffscreenCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const settleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -289,24 +281,20 @@ export const EditorView: React.FC<EditorViewProps> = ({
     }
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
-    const maxDim = 1280
-
-    if (w > maxDim || h > maxDim) {
-      const scale = maxDim / Math.max(w, h)
-      const pw = Math.round(w * scale)
-      const ph = Math.round(h * scale)
-      const pCanvas = document.createElement('canvas')
-      pCanvas.width = pw
-      pCanvas.height = ph
-      const pCtx = pCanvas.getContext('2d')
-      if (pCtx) {
-        pCtx.imageSmoothingEnabled = true
-        pCtx.imageSmoothingQuality = 'high'
-        pCtx.drawImage(baseImage, 0, 0, pw, ph)
-        previewSourceRef.current = pCanvas
-      }
-    } else {
-      previewSourceRef.current = null
+    // Downscale preview to max 720px: ~250k pixels computing in <2ms for locked 60 FPS slider dragging
+    const maxDim = 720
+    const scale = Math.min(1, maxDim / Math.max(w, h))
+    const pw = Math.round(w * scale)
+    const ph = Math.round(h * scale)
+    const pCanvas = document.createElement('canvas')
+    pCanvas.width = pw
+    pCanvas.height = ph
+    const pCtx = pCanvas.getContext('2d')
+    if (pCtx) {
+      pCtx.imageSmoothingEnabled = true
+      pCtx.imageSmoothingQuality = 'high'
+      pCtx.drawImage(baseImage, 0, 0, pw, ph)
+      previewSourceRef.current = pCanvas
     }
   }, [baseImage])
 
@@ -395,16 +383,24 @@ export const EditorView: React.FC<EditorViewProps> = ({
       const pw = pCanvas.width
       const ph = pCanvas.height
 
-      const offCanvas = document.createElement('canvas')
-      offCanvas.width = pw
-      offCanvas.height = ph
+      if (!fastOffscreenCanvasRef.current) {
+        fastOffscreenCanvasRef.current = document.createElement('canvas')
+      }
+      const offCanvas = fastOffscreenCanvasRef.current
+      if (offCanvas.width !== pw || offCanvas.height !== ph) {
+        offCanvas.width = pw
+        offCanvas.height = ph
+      }
       const offCtx = offCanvas.getContext('2d', { willReadFrequently: true })
       if (!offCtx) return
 
+      offCtx.clearRect(0, 0, pw, ph)
       if (adjustments.straighten) {
+        offCtx.save()
         offCtx.translate(pw / 2, ph / 2)
         offCtx.rotate((adjustments.straighten * Math.PI) / 180)
         offCtx.drawImage(pCanvas, -pw / 2, -ph / 2)
+        offCtx.restore()
       } else {
         offCtx.drawImage(pCanvas, 0, 0)
       }
@@ -415,7 +411,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
       ctx.clearRect(0, 0, w, h)
       ctx.imageSmoothingEnabled = true
-      ctx.imageSmoothingQuality = 'medium'
+      ctx.imageSmoothingQuality = 'low'
       ctx.drawImage(offCanvas, 0, 0, w, h)
       return
     }
@@ -447,12 +443,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
       renderCanvas(true)
     })
 
-    // Settle full resolution when dragging pauses for 100ms
-    if (previewSourceRef.current) {
-      settleTimeoutRef.current = setTimeout(() => {
-        renderCanvas(false)
-      }, 100)
-    }
+    // Settle full resolution when dragging pauses (80ms debounce)
+    settleTimeoutRef.current = setTimeout(() => {
+      renderCanvas(false)
+    }, 80)
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -560,9 +554,35 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
 
-    const detected = await detectDocumentCorners(baseImage, w, h)
+    let sourceForDetection: CanvasImageSource = baseImage
+    if (adjustments.straighten) {
+      const rotCanvas = document.createElement('canvas')
+      rotCanvas.width = w
+      rotCanvas.height = h
+      const rCtx = rotCanvas.getContext('2d')
+      if (rCtx) {
+        rCtx.translate(w / 2, h / 2)
+        rCtx.rotate((adjustments.straighten * Math.PI) / 180)
+        rCtx.drawImage(baseImage, -w / 2, -h / 2)
+        sourceForDetection = rotCanvas
+      }
+    }
+
+    const detected = await detectDocumentCorners(sourceForDetection, w, h)
     if (detected && detected.length === 4) {
       setScanPoints(detected)
+      const xs = detected.map(p => p.x)
+      const ys = detected.map(p => p.y)
+      const minX = Math.max(0, Math.min(...xs))
+      const maxX = Math.min(w, Math.max(...xs))
+      const minY = Math.max(0, Math.min(...ys))
+      const maxY = Math.min(h, Math.max(...ys))
+      setFixedCropArea({
+        x: minX,
+        y: minY,
+        width: Math.max(10, maxX - minX),
+        height: Math.max(10, maxY - minY)
+      })
     } else {
       initCropBounds(w, h)
     }
@@ -796,14 +816,60 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setLoupe(null)
   }
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const factor = e.deltaY < 0 ? 1.12 : 0.88
-    const nextZoom = Math.max(0.15, Math.min(8, zoom * factor))
-    setZoom(nextZoom)
-    setPan(prev => clampPan(prev.x, prev.y, nextZoom))
-  }
+  // Global and Viewport Wheel/Pinch Protection: prevents browser UI zoom
+  useEffect(() => {
+    const handleGlobalWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+      }
+    }
+    const handleGesture = (e: Event) => {
+      e.preventDefault()
+    }
+
+    window.addEventListener('wheel', handleGlobalWheel, { passive: false })
+    window.addEventListener('gesturestart', handleGesture, { passive: false })
+    window.addEventListener('gesturechange', handleGesture, { passive: false })
+    window.addEventListener('gestureend', handleGesture, { passive: false })
+
+    return () => {
+      window.removeEventListener('wheel', handleGlobalWheel)
+      window.removeEventListener('gesturestart', handleGesture)
+      window.removeEventListener('gesturechange', handleGesture)
+      window.removeEventListener('gestureend', handleGesture)
+    }
+  }, [])
+
+  // Non-passive viewport wheel listener: zooms strictly the canvas, never the UI
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+
+    const handleVpWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      let factor = 1
+      if (e.ctrlKey) {
+        // Trackpad pinch
+        factor = Math.exp(-e.deltaY * 0.01)
+      } else {
+        // Standard mouse wheel
+        factor = e.deltaY < 0 ? 1.12 : 0.88
+      }
+
+      setZoom(prevZoom => {
+        const nextZoom = Math.max(0.15, Math.min(8, prevZoom * factor))
+        setPan(prevPan => clampPan(prevPan.x, prevPan.y, nextZoom))
+        return nextZoom
+      })
+    }
+
+    vp.addEventListener('wheel', handleVpWheel, { passive: false })
+    return () => {
+      vp.removeEventListener('wheel', handleVpWheel)
+    }
+  }, [baseImage])
 
   const w = baseImage ? (baseImage as HTMLImageElement).naturalWidth || baseImage.width : 0
   const h = baseImage ? (baseImage as HTMLImageElement).naturalHeight || baseImage.height : 0
@@ -877,28 +943,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
         {/* Right: Mode Toggles, Direct Download & Export */}
         <div className="flex items-center gap-1.5">
-          {/* Post Mode Button */}
-          <button
-            onClick={handleOpenPostMode}
-            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
-            title="Режим публикации (пост)"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="0" />
-              <line x1="7" y1="16" x2="17" y2="16" />
-              <line x1="9" y1="19" x2="15" y2="19" />
-              <rect x="6" y="6" width="12" height="7" />
-            </svg>
-          </button>
-
           {/* View on Wall Button */}
           <button
             onClick={handleOpenWallView}
@@ -979,7 +1023,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
       <div
         ref={viewportRef}
         className="relative flex-1 overflow-hidden cursor-grab active:cursor-grabbing touch-none flex items-center justify-center bg-[#f2efef]"
-        onWheel={handleWheel}
         onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
         onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
         onMouseUp={handlePointerUp}
@@ -998,14 +1041,17 @@ export const EditorView: React.FC<EditorViewProps> = ({
           if (e.touches.length === 1) {
             handlePointerMove(e.touches[0].clientX, e.touches[0].clientY)
           } else if (e.touches.length === 2 && touchDistance !== null) {
+            e.preventDefault()
             const dist = Math.hypot(
               e.touches[0].clientX - e.touches[1].clientX,
               e.touches[0].clientY - e.touches[1].clientY
             )
             const factor = dist / touchDistance
-            const nextZoom = Math.max(0.2, Math.min(6, zoom * factor))
-            setZoom(nextZoom)
-            setPan(prev => clampPan(prev.x, prev.y, nextZoom))
+            setZoom(prevZoom => {
+              const nextZoom = Math.max(0.2, Math.min(6, prevZoom * factor))
+              setPan(prevPan => clampPan(prevPan.x, prevPan.y, nextZoom))
+              return nextZoom
+            })
             setTouchDistance(dist)
           }
         }}
@@ -1021,10 +1067,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
           </div>
         )}
 
-        {/* Transformed Image & Interactive Crop Coordinate Space */}
-        {/* Transformed Image & Interactive Crop Coordinate Space (Anchored strictly to top-left for 100% exact canvas centering) */}
+        {/* Transformed Image & Interactive Crop Coordinate Space (1px black border, NO shadow) */}
         <div
-          className="absolute top-0 left-0 origin-top-left shadow-sm transition-transform duration-75 ease-out"
+          className="absolute top-0 left-0 origin-top-left border border-[#0f0b0c] transition-transform duration-75 ease-out"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             width: w,
@@ -1269,24 +1314,15 @@ export const EditorView: React.FC<EditorViewProps> = ({
         />
       </div>
 
-      {/* Export Modal */}
+      {/* Export Modal (Supports direct export and Export as Post 3:4) */}
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         canvas={canvasRef.current}
         originalFileName={fileName}
         artworkTitle={artworkInfo.title}
-      />
-
-      {/* Post Mode View (Exact layout & typography from ourdynasty) */}
-      <PostModeView
-        isOpen={isPostModeOpen}
-        imageSrc={modalImageSrc || initialImageUrl}
         artworkInfo={artworkInfo}
-        onUpdateArtworkInfo={(updated) => {
-          setArtworkInfo(updated)
-        }}
-        onClose={() => setIsPostModeOpen(false)}
+        onUpdateArtworkInfo={setArtworkInfo}
       />
 
       {/* Wall View Modal (Interactive AR / Wall preview from ourdynasty) */}
