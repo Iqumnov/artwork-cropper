@@ -303,21 +303,27 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const previewWorkingImageDataRef = useRef<ImageData | null>(null)
   const fastOffscreenCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
-  const settleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isRafScheduledRef = useRef(false)
+  const idleSettleTimerRef = useRef<NodeJS.Timeout | null>(null)
   const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isDraggingSliderRef = useRef(false)
+  const isActivelyAdjustingRef = useRef(false)
+  const activeAdjustmentsRef = useRef(adjustments)
+  activeAdjustmentsRef.current = adjustments
 
   const handleSliderDragStart = useCallback(() => {
     isDraggingSliderRef.current = true
-    if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
+    isActivelyAdjustingRef.current = true
+    if (idleSettleTimerRef.current) clearTimeout(idleSettleTimerRef.current)
   }, [])
 
   const handleSliderDragEnd = useCallback(() => {
     isDraggingSliderRef.current = false
-    if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
-    settleTimeoutRef.current = setTimeout(() => {
+    if (idleSettleTimerRef.current) clearTimeout(idleSettleTimerRef.current)
+    idleSettleTimerRef.current = setTimeout(() => {
+      isActivelyAdjustingRef.current = false
       renderCanvas(false)
-    }, 400)
+    }, 350)
   }, [])
 
   useEffect(() => {
@@ -371,41 +377,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     return () => clearTimeout(timer)
   }, [initialImageUrl, artworkId, adjustments, activeTab, cropMode, selectedAspectRatio, scanPoints, fixedCropArea, drawerHeight, fileName, artworkInfo])
 
-  // Adjustments Change: Immediate state update for 60 FPS live feedback, debounced history push
-  const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
-    setAdjustments(nextAdj)
-
-    if (historyTimeoutRef.current) {
-      clearTimeout(historyTimeoutRef.current)
-    }
-
-    historyTimeoutRef.current = setTimeout(() => {
-      setHistory(prev => {
-        const newHistory = prev.slice(0, historyIndex + 1)
-        newHistory.push(nextAdj)
-        if (newHistory.length > 30) newHistory.shift()
-        setHistoryIndex(newHistory.length - 1)
-        return newHistory
-      })
-    }, 250)
-  }
-
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const prev = history[historyIndex - 1]
-      setHistoryIndex(historyIndex - 1)
-      setAdjustments(prev)
-    }
-  }
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      const next = history[historyIndex + 1]
-      setHistoryIndex(historyIndex + 1)
-      setAdjustments(next)
-    }
-  }
-
   // Render Pipeline: Draws image with Lightroom corrections
   // isFastPreview: if true, renders via zero-readback in-memory buffer for locked 60 FPS slider responsiveness
   const renderCanvas = useCallback((isFastPreview = false) => {
@@ -413,6 +384,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const canvas = canvasRef.current
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+    const currentAdjustments = activeAdjustmentsRef.current
 
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
@@ -449,28 +421,28 @@ export const EditorView: React.FC<EditorViewProps> = ({
       const offCtx = offCanvas.getContext('2d', { willReadFrequently: true })
       if (!offCtx) return
 
-      if (adjustments.straighten) {
+      if (currentAdjustments.straighten) {
         offCtx.fillStyle = '#faf8f8'
         offCtx.fillRect(0, 0, pw, ph)
         offCtx.save()
         offCtx.translate(pw / 2, ph / 2)
-        offCtx.rotate((adjustments.straighten * Math.PI) / 180)
+        offCtx.rotate((currentAdjustments.straighten * Math.PI) / 180)
         offCtx.drawImage(pCanvas, -pw / 2, -ph / 2)
         offCtx.restore()
 
         const pImageData = offCtx.getImageData(0, 0, pw, ph)
-        applyLightroomAdjustments(pImageData, adjustments)
+        applyLightroomAdjustments(pImageData, currentAdjustments)
         offCtx.putImageData(pImageData, 0, 0)
       } else {
         // ULTRA-FAST ZERO-READBACK PATH: ~2ms total execution time!
         workingImageData.data.set(rawPixels)
-        applyLightroomAdjustments(workingImageData, adjustments)
+        applyLightroomAdjustments(workingImageData, currentAdjustments)
         offCtx.putImageData(workingImageData, 0, 0)
       }
 
       // During active slider dragging on mobile/retina, keep the main canvas backing buffer at fast preview resolution (pw, ph)
       // The CSS 'w-full h-full' automatically stretches it via hardware GPU sampler with ZERO compositor stalls!
-      if (isDraggingSliderRef.current) {
+      if (isActivelyAdjustingRef.current || isDraggingSliderRef.current) {
         if (canvas.width !== pw || canvas.height !== ph) {
           canvas.width = pw
           canvas.height = ph
@@ -497,9 +469,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
     ctx.fillStyle = '#faf8f8'
     ctx.fillRect(0, 0, w, h)
     ctx.save()
-    if (adjustments.straighten) {
+    if (currentAdjustments.straighten) {
       ctx.translate(w / 2, h / 2)
-      ctx.rotate((adjustments.straighten * Math.PI) / 180)
+      ctx.rotate((currentAdjustments.straighten * Math.PI) / 180)
       ctx.drawImage(baseImage, -w / 2, -h / 2)
     } else {
       ctx.drawImage(baseImage, 0, 0)
@@ -507,32 +479,70 @@ export const EditorView: React.FC<EditorViewProps> = ({
     ctx.restore()
 
     const imageData = ctx.getImageData(0, 0, w, h)
-    applyLightroomAdjustments(imageData, adjustments)
+    applyLightroomAdjustments(imageData, currentAdjustments)
     ctx.putImageData(imageData, 0, 0)
-  }, [baseImage, adjustments, showBefore])
+  }, [baseImage, showBefore])
 
-  // Continuous real-time RAF rendering while dragging + debounced full-res settle
-  useEffect(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
-
-    // Render fast preview instantly on next frame
+  // Coalesced RAF render scheduler: schedules at most one render per screen vsync refresh without starvation
+  const scheduleFastRender = useCallback(() => {
+    if (isRafScheduledRef.current) return
+    isRafScheduledRef.current = true
     rafRef.current = requestAnimationFrame(() => {
+      isRafScheduledRef.current = false
       renderCanvas(true)
     })
+  }, [renderCanvas])
 
-    // Settle full resolution ONLY when not actively dragging
-    if (!isDraggingSliderRef.current) {
-      settleTimeoutRef.current = setTimeout(() => {
-        renderCanvas(false)
-      }, 400)
-    }
+  // Adjustments Change: Immediate state update with RAF coalescing and debounced history push
+  const handleAdjustmentsChange = useCallback((nextAdj: LightroomAdjustments) => {
+    activeAdjustmentsRef.current = nextAdj
+    isActivelyAdjustingRef.current = true
+    setAdjustments(nextAdj)
 
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
+    // Trigger coalesced fast render
+    scheduleFastRender()
+
+    // Settle high resolution when user pauses or stops adjusting for 400ms
+    if (idleSettleTimerRef.current) clearTimeout(idleSettleTimerRef.current)
+    idleSettleTimerRef.current = setTimeout(() => {
+      isActivelyAdjustingRef.current = false
+      renderCanvas(false)
+    }, 400)
+
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current)
     }
-  }, [adjustments, showBefore, renderCanvas])
+    historyTimeoutRef.current = setTimeout(() => {
+      setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1)
+        newHistory.push(nextAdj)
+        if (newHistory.length > 30) newHistory.shift()
+        setHistoryIndex(newHistory.length - 1)
+        return newHistory
+      })
+    }, 400)
+  }, [historyIndex, scheduleFastRender, renderCanvas])
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prev = history[historyIndex - 1]
+      setHistoryIndex(historyIndex - 1)
+      handleAdjustmentsChange(prev)
+    }
+  }
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const next = history[historyIndex + 1]
+      setHistoryIndex(historyIndex + 1)
+      handleAdjustmentsChange(next)
+    }
+  }
+
+  // Effect to re-render when showBefore toggles or baseImage changes
+  useEffect(() => {
+    renderCanvas(false)
+  }, [showBefore, baseImage, renderCanvas])
 
   // Save snapshot to history
   const saveSnapshotToHistory = () => {
