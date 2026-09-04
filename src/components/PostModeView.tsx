@@ -94,15 +94,6 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
     setPressProgress(false)
   }
 
-  // Build metadata line: technique/medium · dimensions · year
-  const metadataParts = [
-    info.medium?.trim(),
-    info.dimensions?.trim(),
-    info.year?.trim()
-  ].filter(Boolean)
-
-  const defaultDetailsPlaceholder = 'Холст, масло · 80 × 60 см · 2026'
-
   return (
     <div
       onPointerDown={handlePointerDown}
@@ -172,31 +163,53 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
             }}
           />
 
-          {/* Editable Details (Medium · Dimensions · Year) */}
-          <input
-            type="text"
-            value={
-              info.medium || info.dimensions || info.year
-                ? metadataParts.join(' · ')
-                : ''
-            }
-            placeholder={defaultDetailsPlaceholder}
-            onChange={(e) => {
-              const val = e.target.value
-              const parts = val.split('·').map((s) => s.trim())
-              handleFieldChange('medium', parts[0] || '')
-              handleFieldChange('dimensions', parts[1] || '')
-              handleFieldChange('year', parts[2] || '')
-            }}
-            className="post-mode-input text-xs sm:text-base text-[#565051] text-center w-full bg-transparent border-0 outline-none"
-            style={{
-              fontFamily: "'EBGaramond', Georgia, serif",
-              fontVariantNumeric: 'lining-nums tabular-nums',
-              caretColor: 'transparent',
-              outline: 'none',
-              lineHeight: 1.5,
-            }}
-          />
+          {/* Editable Details: Medium · Dimensions · Year */}
+          <div className="flex items-center justify-center flex-wrap gap-x-1.5 gap-y-1 text-xs sm:text-base text-[#565051] [font-variant-numeric:lining-nums_tabular-nums] max-w-full">
+            <input
+              type="text"
+              value={info.medium || ''}
+              placeholder="Техника"
+              onChange={(e) => handleFieldChange('medium', e.target.value)}
+              className="post-mode-input text-center bg-transparent border-0 outline-none"
+              style={{
+                fontFamily: "'EBGaramond', Georgia, serif",
+                caretColor: 'transparent',
+                outline: 'none',
+                width: info.medium ? `${Math.max(4, info.medium.length + 1)}ch` : '10ch',
+                maxWidth: '180px',
+              }}
+            />
+            <span className="text-[#565051]/60 select-none">·</span>
+            <input
+              type="text"
+              value={info.dimensions || ''}
+              placeholder="Размер (напр. 80 × 60 см)"
+              onChange={(e) => handleFieldChange('dimensions', e.target.value)}
+              className="post-mode-input text-center bg-transparent border-0 outline-none"
+              style={{
+                fontFamily: "'EBGaramond', Georgia, serif",
+                caretColor: 'transparent',
+                outline: 'none',
+                width: info.dimensions ? `${Math.max(6, info.dimensions.length + 1)}ch` : '18ch',
+                maxWidth: '220px',
+              }}
+            />
+            <span className="text-[#565051]/60 select-none">·</span>
+            <input
+              type="text"
+              value={info.year || ''}
+              placeholder="Год"
+              onChange={(e) => handleFieldChange('year', e.target.value)}
+              className="post-mode-input text-center bg-transparent border-0 outline-none"
+              style={{
+                fontFamily: "'EBGaramond', Georgia, serif",
+                caretColor: 'transparent',
+                outline: 'none',
+                width: info.year ? `${Math.max(4, info.year.length + 1)}ch` : '5ch',
+                maxWidth: '70px',
+              }}
+            />
+          </div>
         </div>
       </div>
 

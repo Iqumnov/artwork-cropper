@@ -501,7 +501,6 @@ export const WallViewModal: React.FC<WallViewModalProps> = ({
           top: `${artworkPosition.y}%`,
           width: '100vw',
           transform: `translate(-50%, -50%) scale(${artworkSize / 100})`,
-          filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))',
           touchAction: 'none',
         }}
       >
@@ -516,6 +515,9 @@ export const WallViewModal: React.FC<WallViewModalProps> = ({
             src={imageSrc}
             alt={title}
             className="w-full h-auto object-contain select-none pointer-events-none"
+            style={{
+              filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.32))',
+            }}
             draggable={false}
           />
         </div>
@@ -548,8 +550,8 @@ export const WallViewModal: React.FC<WallViewModalProps> = ({
           isInterfaceVisible ? 'opacity-100' : 'opacity-0 !pointer-events-none'
         }`}
       >
-        {/* Dimensions Display if present */}
-        {dimensions && (
+        {/* Dimensions Display only if explicitly filled in post mode */}
+        {dimensions && dimensions.trim().length > 0 && (
           <div className="pointer-events-auto">
             <p
               className="text-sm font-medium"
@@ -560,7 +562,7 @@ export const WallViewModal: React.FC<WallViewModalProps> = ({
                 fontFamily: "'EBGaramond', Georgia, serif",
               }}
             >
-              {dimensions}
+              {dimensions.trim()}
             </p>
           </div>
         )}

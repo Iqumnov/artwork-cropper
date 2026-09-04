@@ -72,7 +72,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
         artist: '',
         medium: '',
         dimensions: '',
-        year: '2026'
+        year: ''
       }
     )
   })
@@ -1171,11 +1171,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
         onClose={() => setIsWallModalOpen(false)}
         imageSrc={canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl}
         title={artworkInfo.title || 'Картина'}
-        dimensions={
-          [artworkInfo.medium, artworkInfo.dimensions, artworkInfo.year]
-            .filter(Boolean)
-            .join(' · ')
-        }
+        dimensions={artworkInfo.dimensions?.trim() || ''}
       />
     </div>
   )
