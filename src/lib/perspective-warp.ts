@@ -280,31 +280,41 @@ function detectWithCanvasEdges(
     const imgData = ctx.getImageData(0, 0, w, h)
     const data = imgData.data
 
-    // 1. Grayscale luminance and perimeter background color sampling
+    // 1. Grayscale luminance and robust background color estimation from 4 outer corners
     const luma = new Float32Array(w * h)
-    let bgR = 0, bgG = 0, bgB = 0, bgCount = 0
-    const rimX = Math.max(2, Math.round(w * 0.035))
-    const rimY = Math.max(2, Math.round(h * 0.035))
-
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4
-        const r = data[idx]
-        const g = data[idx + 1]
-        const b = data[idx + 2]
-        luma[y * w + x] = 0.299 * r + 0.587 * g + 0.114 * b
-
-        if (x < rimX || x >= w - rimX || y < rimY || y >= h - rimY) {
-          bgR += r
-          bgG += g
-          bgB += b
-          bgCount++
-        }
+        luma[y * w + x] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]
       }
     }
-    bgR = bgCount > 0 ? bgR / bgCount : 240
-    bgG = bgCount > 0 ? bgG / bgCount : 240
-    bgB = bgCount > 0 ? bgB / bgCount : 240
+
+    const rimX = Math.max(4, Math.round(w * 0.08))
+    const rimY = Math.max(4, Math.round(h * 0.08))
+    const rSamples: number[] = []
+    const gSamples: number[] = []
+    const bSamples: number[] = []
+
+    for (let y = 0; y < rimY; y++) {
+      for (let x = 0; x < rimX; x++) {
+        const idxTL = (y * w + x) * 4
+        rSamples.push(data[idxTL]); gSamples.push(data[idxTL + 1]); bSamples.push(data[idxTL + 2])
+        const idxTR = (y * w + (w - 1 - x)) * 4
+        rSamples.push(data[idxTR]); gSamples.push(data[idxTR + 1]); bSamples.push(data[idxTR + 2])
+        const idxBL = ((h - 1 - y) * w + x) * 4
+        rSamples.push(data[idxBL]); gSamples.push(data[idxBL + 1]); bSamples.push(data[idxBL + 2])
+        const idxBR = ((h - 1 - y) * w + (w - 1 - x)) * 4
+        rSamples.push(data[idxBR]); gSamples.push(data[idxBR + 1]); bSamples.push(data[idxBR + 2])
+      }
+    }
+
+    rSamples.sort((a, b) => a - b)
+    gSamples.sort((a, b) => a - b)
+    bSamples.sort((a, b) => a - b)
+    const midIdx = Math.floor(rSamples.length / 2)
+    const bgR = rSamples[midIdx] ?? 240
+    const bgG = gSamples[midIdx] ?? 240
+    const bgB = bSamples[midIdx] ?? 240
 
     // 2. 2D Sobel Gradient Magnitude Map
     const grad = new Float32Array(w * h)
@@ -331,204 +341,204 @@ function detectWithCanvasEdges(
       return Math.sqrt(dr * dr + dg * dg + db * db)
     }
 
-    // 3. Dense Inward Ray-Casting (40 rays per side) with Outer Edge Peak Detection
-    const numRays = 40
+    // 3. Dense Inward Ray-Casting (48 rays per side) with global boundary peak detection
+    const numRays = 48
     const topPts: { x: number; y: number }[] = []
     const botPts: { x: number; y: number }[] = []
     const leftPts: { x: number; y: number }[] = []
     const rightPts: { x: number; y: number }[] = []
 
-    const minDepthY = Math.max(3, Math.round(h * 0.015))
-    const maxDepthY = Math.round(h * 0.38)
-    const minDepthX = Math.max(3, Math.round(w * 0.015))
-    const maxDepthX = Math.round(w * 0.38)
+    const minDepthY = Math.max(3, Math.round(h * 0.012))
+    const maxDepthY = Math.round(h * 0.46)
+    const minDepthX = Math.max(3, Math.round(w * 0.012))
+    const maxDepthX = Math.round(w * 0.46)
 
-    // Top rays: search from top edge downward
+    // Top rays: search downward
     for (let i = 1; i <= numRays; i++) {
       const x = Math.round((i / (numRays + 1)) * (w - 2 * rimX) + rimX)
-      let peakScore = 0
-      let peakY = -1
+      let bestScore = 0
+      let bestY = -1
       for (let y = minDepthY; y < maxDepthY; y++) {
         const g = grad[y * w + x]
         const d = getBgDist(x, y)
         const score = g * 0.65 + d * 0.35
-        if (score > peakScore) {
-          peakScore = score
-          peakY = y
-        } else if (peakScore > 28 && score < peakScore * 0.65) {
-          // Outermost edge peak passed; stop before penetrating into interior artwork details
-          break
+        if (score > bestScore) {
+          bestScore = score
+          bestY = y
         }
       }
-      if (peakY > 0 && peakScore > 22) topPts.push({ x, y: peakY })
+      if (bestY > 0 && bestScore > 20) topPts.push({ x, y: bestY })
+    }
 
-      // Bottom rays: search from bottom edge upward
-      peakScore = 0
-      peakY = -1
+    // Bottom rays: search upward
+    for (let i = 1; i <= numRays; i++) {
+      const x = Math.round((i / (numRays + 1)) * (w - 2 * rimX) + rimX)
+      let bestScore = 0
+      let bestY = -1
       for (let y = h - 1 - minDepthY; y > h - 1 - maxDepthY; y--) {
         const g = grad[y * w + x]
         const d = getBgDist(x, y)
         const score = g * 0.65 + d * 0.35
-        if (score > peakScore) {
-          peakScore = score
-          peakY = y
-        } else if (peakScore > 28 && score < peakScore * 0.65) {
-          break
+        if (score > bestScore) {
+          bestScore = score
+          bestY = y
         }
       }
-      if (peakY > 0 && peakScore > 22) botPts.push({ x, y: peakY })
+      if (bestY > 0 && bestScore > 20) botPts.push({ x, y: bestY })
     }
 
-    // Left & Right rays: search from side edges inward
+    // Left rays: search inward rightward
     for (let i = 1; i <= numRays; i++) {
       const y = Math.round((i / (numRays + 1)) * (h - 2 * rimY) + rimY)
-      let peakScore = 0
-      let peakX = -1
+      let bestScore = 0
+      let bestX = -1
       for (let x = minDepthX; x < maxDepthX; x++) {
         const g = grad[y * w + x]
         const d = getBgDist(x, y)
         const score = g * 0.65 + d * 0.35
-        if (score > peakScore) {
-          peakScore = score
-          peakX = x
-        } else if (peakScore > 28 && score < peakScore * 0.65) {
-          break
+        if (score > bestScore) {
+          bestScore = score
+          bestX = x
         }
       }
-      if (peakX > 0 && peakScore > 22) leftPts.push({ x: peakX, y })
+      if (bestX > 0 && bestScore > 20) leftPts.push({ x: bestX, y })
+    }
 
-      peakScore = 0
-      peakX = -1
+    // Right rays: search inward leftward
+    for (let i = 1; i <= numRays; i++) {
+      const y = Math.round((i / (numRays + 1)) * (h - 2 * rimY) + rimY)
+      let bestScore = 0
+      let bestX = -1
       for (let x = w - 1 - minDepthX; x > w - 1 - maxDepthX; x--) {
         const g = grad[y * w + x]
         const d = getBgDist(x, y)
         const score = g * 0.65 + d * 0.35
-        if (score > peakScore) {
-          peakScore = score
-          peakX = x
-        } else if (peakScore > 28 && score < peakScore * 0.65) {
-          break
+        if (score > bestScore) {
+          bestScore = score
+          bestX = x
         }
       }
-      if (peakX > 0 && peakScore > 22) rightPts.push({ x: peakX, y })
+      if (bestX > 0 && bestScore > 20) rightPts.push({ x: bestX, y })
     }
 
-    // 4. RANSAC Line Fitting (Rejects noise, shadows, and outliers)
-    const ransacHLine = (pts: { x: number; y: number }[]) => {
+    // 4. Normal-Form RANSAC & Orthogonal Distance Regression (ODR) line fitting
+    interface FittedLine {
+      a: number
+      b: number
+      c: number
+    }
+
+    const fitODRLine = (pts: { x: number; y: number }[]): FittedLine | null => {
+      if (pts.length < 3) return null
+      let sumX = 0, sumY = 0
+      const n = pts.length
+      for (const p of pts) { sumX += p.x; sumY += p.y }
+      const cx = sumX / n
+      const cy = sumY / n
+
+      let sxx = 0, syy = 0, sxy = 0
+      for (const p of pts) {
+        const dx = p.x - cx
+        const dy = p.y - cy
+        sxx += dx * dx
+        syy += dy * dy
+        sxy += dx * dy
+      }
+
+      const angle = 0.5 * Math.atan2(2 * sxy, sxx - syy)
+      const a = -Math.sin(angle)
+      const b = Math.cos(angle)
+      const c = -(a * cx + b * cy)
+      return { a, b, c }
+    }
+
+    const ransacLine = (
+      pts: { x: number; y: number }[],
+      orientation: 'horizontal' | 'vertical',
+      threshold: number
+    ): FittedLine | null => {
       if (pts.length < 4) return null
       let bestInliers: { x: number; y: number }[] = []
-      const iterations = 80
-      const threshold = Math.max(3, h * 0.025)
+      const iterations = 100
 
       for (let iter = 0; iter < iterations; iter++) {
         const p1 = pts[Math.floor(Math.random() * pts.length)]
         const p2 = pts[Math.floor(Math.random() * pts.length)]
-        if (p1 === p2 || Math.abs(p1.x - p2.x) < 20) continue
+        if (p1 === p2) continue
 
-        const slope = (p2.y - p1.y) / (p2.x - p1.x)
-        if (Math.abs(slope) > 0.45) continue
+        const dx = p2.x - p1.x
+        const dy = p2.y - p1.y
+        const dist = Math.hypot(dx, dy)
+        if (dist < 15) continue
 
-        const intercept = p1.y - slope * p1.x
-        const inliers = pts.filter(p => Math.abs(p.y - (slope * p.x + intercept)) <= threshold)
+        // Angle check: allow up to 65 degree tilt relative to orientation
+        if (orientation === 'horizontal') {
+          if (Math.abs(dx) < Math.abs(dy) * 0.45) continue
+        } else {
+          if (Math.abs(dy) < Math.abs(dx) * 0.45) continue
+        }
+
+        const a = -dy / dist
+        const b = dx / dist
+        const c = -(a * p1.x + b * p1.y)
+
+        const inliers = pts.filter(p => Math.abs(a * p.x + b * p.y + c) <= threshold)
         if (inliers.length > bestInliers.length) {
           bestInliers = inliers
         }
       }
 
-      if (bestInliers.length < Math.max(4, pts.length * 0.25)) return null
-
-      let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0
-      const n = bestInliers.length
-      for (const p of bestInliers) {
-        sumX += p.x; sumY += p.y
-        sumXX += p.x * p.x; sumXY += p.x * p.y
-      }
-      const denom = n * sumXX - sumX * sumX
-      const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
-      const b = (sumY - a * sumX) / n
-      return { a, b }
+      if (bestInliers.length < Math.max(4, Math.round(pts.length * 0.2))) return null
+      return fitODRLine(bestInliers)
     }
 
-    const ransacVLine = (pts: { x: number; y: number }[]) => {
-      if (pts.length < 4) return null
-      let bestInliers: { x: number; y: number }[] = []
-      const iterations = 80
-      const threshold = Math.max(3, w * 0.025)
-
-      for (let iter = 0; iter < iterations; iter++) {
-        const p1 = pts[Math.floor(Math.random() * pts.length)]
-        const p2 = pts[Math.floor(Math.random() * pts.length)]
-        if (p1 === p2 || Math.abs(p1.y - p2.y) < 20) continue
-
-        const slope = (p2.x - p1.x) / (p2.y - p1.y)
-        if (Math.abs(slope) > 0.45) continue
-
-        const intercept = p1.x - slope * p1.y
-        const inliers = pts.filter(p => Math.abs(p.x - (slope * p.y + intercept)) <= threshold)
-        if (inliers.length > bestInliers.length) {
-          bestInliers = inliers
-        }
+    const intersectLines = (l1: FittedLine, l2: FittedLine): ScanPoint | null => {
+      const denom = l1.a * l2.b - l2.a * l1.b
+      if (Math.abs(denom) < 1e-4) return null
+      const x = (l1.b * l2.c - l2.b * l1.c) / denom
+      const y = (l2.a * l1.c - l1.a * l2.c) / denom
+      return {
+        x: Math.max(0, Math.min(naturalWidth, Math.round(x / scale))),
+        y: Math.max(0, Math.min(naturalHeight, Math.round(y / scale)))
       }
-
-      if (bestInliers.length < Math.max(4, pts.length * 0.25)) return null
-
-      let sumX = 0, sumY = 0, sumYY = 0, sumXY = 0
-      const n = bestInliers.length
-      for (const p of bestInliers) {
-        sumX += p.x; sumY += p.y
-        sumYY += p.y * p.y; sumXY += p.x * p.y
-      }
-      const denom = n * sumYY - sumY * sumY
-      const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
-      const b = (sumX - a * sumY) / n
-      return { a, b }
     }
 
-    const topL = ransacHLine(topPts)
-    const botL = ransacHLine(botPts)
-    const leftL = ransacVLine(leftPts)
-    const rightL = ransacVLine(rightPts)
+    const topL = ransacLine(topPts, 'horizontal', Math.max(3, h * 0.028))
+    const botL = ransacLine(botPts, 'horizontal', Math.max(3, h * 0.028))
+    const leftL = ransacLine(leftPts, 'vertical', Math.max(3, w * 0.028))
+    const rightL = ransacLine(rightPts, 'vertical', Math.max(3, w * 0.028))
 
     if (topL && botL && leftL && rightL) {
-      const intersect = (hLine: { a: number; b: number }, vLine: { a: number; b: number }) => {
-        const denom = 1 - hLine.a * vLine.a
-        if (Math.abs(denom) < 1e-4) return { x: 0, y: 0 }
-        const y = (hLine.a * vLine.b + hLine.b) / denom
-        const x = vLine.a * y + vLine.b
-        return {
-          x: Math.max(0, Math.min(naturalWidth, Math.round(x / scale))),
-          y: Math.max(0, Math.min(naturalHeight, Math.round(y / scale)))
+      const tl = intersectLines(topL, leftL)
+      const tr = intersectLines(topL, rightL)
+      const br = intersectLines(botL, rightL)
+      const bl = intersectLines(botL, leftL)
+
+      if (tl && tr && br && bl) {
+        const candidate = orderCorners([tl, tr, br, bl])
+        if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
+          return candidate
         }
-      }
-
-      const tl = intersect(topL, leftL)
-      const tr = intersect(topL, rightL)
-      const br = intersect(botL, rightL)
-      const bl = intersect(botL, leftL)
-
-      const candidate: ScanPoint[] = [tl, tr, br, bl]
-      if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
-        return candidate
       }
     }
 
-    // 5. High-Accuracy Percentile Bounding Box Fallback
+    // 5. Percentile Bounding Box Fallback
     const allPts = [...topPts, ...botPts, ...leftPts, ...rightPts]
-    if (allPts.length >= 16) {
+    if (allPts.length >= 12) {
       const xs = allPts.map(p => p.x).sort((a, b) => a - b)
       const ys = allPts.map(p => p.y).sort((a, b) => a - b)
 
-      const minX = xs[Math.floor(xs.length * 0.08)]
-      const maxX = xs[Math.floor(xs.length * 0.92)]
-      const minY = ys[Math.floor(ys.length * 0.08)]
-      const maxY = ys[Math.floor(ys.length * 0.92)]
+      const minX = xs[Math.floor(xs.length * 0.05)]
+      const maxX = xs[Math.floor(xs.length * 0.95)]
+      const minY = ys[Math.floor(ys.length * 0.05)]
+      const maxY = ys[Math.floor(ys.length * 0.95)]
 
-      const candidate: ScanPoint[] = [
+      const candidate = orderCorners([
         { x: Math.round(minX / scale), y: Math.round(minY / scale) },
         { x: Math.round(maxX / scale), y: Math.round(minY / scale) },
         { x: Math.round(maxX / scale), y: Math.round(maxY / scale) },
         { x: Math.round(minX / scale), y: Math.round(maxY / scale) },
-      ]
+      ])
       if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
         return candidate
       }

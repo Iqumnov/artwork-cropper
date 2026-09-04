@@ -19,7 +19,7 @@ import {
 } from '../types'
 import { getDefaultAdjustments } from '../lib/presets'
 import { applyLightroomAdjustments } from '../lib/color-engine'
-import { warpPerspectiveCanvas, detectDocumentCorners } from '../lib/perspective-warp'
+import { warpPerspectiveCanvas, detectDocumentCorners, orderCorners } from '../lib/perspective-warp'
 import { LightroomStudio } from './LightroomStudio'
 import { ExportModal } from './ExportModal'
 import { WallViewModal } from './WallViewModal'
@@ -124,6 +124,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     | { type: 'scan-point'; index: number }
     | { type: 'scan-side'; index: number }
     | { type: 'fixed-corner'; corner: 'tl' | 'tr' | 'br' | 'bl' }
+    | { type: 'fixed-side'; side: 'top' | 'right' | 'bottom' | 'left' }
     | { type: 'fixed-box' }
     | null
   >(null)
@@ -555,28 +556,36 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   const handleAutoDetectCrop = async () => {
     if (!baseImage) return
-    const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
-    const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+    const w = (baseImage as HTMLImageElement).naturalWidth || (baseImage as HTMLCanvasElement).width
+    const h = (baseImage as HTMLImageElement).naturalHeight || (baseImage as HTMLCanvasElement).height
 
-    let sourceForDetection: CanvasImageSource = baseImage
-    if (adjustments.straighten) {
-      const rotCanvas = document.createElement('canvas')
-      rotCanvas.width = w
-      rotCanvas.height = h
-      const rCtx = rotCanvas.getContext('2d')
-      if (rCtx) {
-        rCtx.translate(w / 2, h / 2)
-        rCtx.rotate((adjustments.straighten * Math.PI) / 180)
-        rCtx.drawImage(baseImage, -w / 2, -h / 2)
-        sourceForDetection = rotCanvas
-      }
-    }
-
-    const detected = await detectDocumentCorners(sourceForDetection, w, h)
+    // 1. Detect corners directly on pristine baseImage (no transparent wedge artifacts from canvas rotation)
+    const detected = await detectDocumentCorners(baseImage, w, h)
     if (detected && detected.length === 4) {
-      setScanPoints(detected)
-      const xs = detected.map(p => p.x)
-      const ys = detected.map(p => p.y)
+      let finalPoints = detected
+
+      // 2. If straighten rotation is active, rigidly rotate corners around image center into screen canvas space
+      if (adjustments.straighten) {
+        const rad = (adjustments.straighten * Math.PI) / 180
+        const cos = Math.cos(rad)
+        const sin = Math.sin(rad)
+        const cx = w / 2
+        const cy = h / 2
+        finalPoints = orderCorners(
+          detected.map(p => {
+            const rx = (p.x - cx) * cos - (p.y - cy) * sin + cx
+            const ry = (p.x - cx) * sin + (p.y - cy) * cos + cy
+            return {
+              x: Math.max(0, Math.min(w, Math.round(rx))),
+              y: Math.max(0, Math.min(h, Math.round(ry)))
+            }
+          })
+        )
+      }
+
+      setScanPoints(finalPoints)
+      const xs = finalPoints.map(p => p.x)
+      const ys = finalPoints.map(p => p.y)
       const minX = Math.max(0, Math.min(...xs))
       const maxX = Math.min(w, Math.max(...xs))
       const minY = Math.max(0, Math.min(...ys))
@@ -669,25 +678,45 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (!ctx) return
 
     const size = canvas.width
+    const w = (baseImage as HTMLImageElement).naturalWidth || (baseImage as HTMLCanvasElement).width
+    const h = (baseImage as HTMLImageElement).naturalHeight || (baseImage as HTMLCanvasElement).height
+
     ctx.clearRect(0, 0, size, size)
 
-    const zoomFactor = 3
-    const srcW = size / zoomFactor
-    const srcH = size / zoomFactor
-    const srcX = imgX - srcW / 2
-    const srcY = imgY - srcH / 2
-
+    const zoomFactor = 2.8
     ctx.save()
     // Circular clip
     ctx.beginPath()
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
     ctx.clip()
 
-    ctx.drawImage(baseImage, srcX, srcY, srcW, srcH, 0, 0, size, size)
+    // Subtle dark backdrop behind magnified image
+    ctx.fillStyle = '#1e1a1b'
+    ctx.fillRect(0, 0, size, size)
 
-    // Fine 1px crosshair lines (NO RED DOT)
-    ctx.strokeStyle = '#0f0b0c'
-    ctx.lineWidth = 1
+    // Center inspected point (imgX, imgY) in the loupe
+    ctx.translate(size / 2, size / 2)
+    ctx.scale(zoomFactor, zoomFactor)
+    ctx.translate(-imgX, -imgY)
+
+    // Draw base image, respecting straighten rotation angle identically to canvas
+    if (adjustments.straighten) {
+      ctx.translate(w / 2, h / 2)
+      ctx.rotate((adjustments.straighten * Math.PI) / 180)
+      ctx.drawImage(baseImage, -w / 2, -h / 2)
+    } else {
+      ctx.drawImage(baseImage, 0, 0)
+    }
+
+    ctx.restore()
+
+    // Minecraft Crosshair and Unified Border (Reacts dynamically to background via difference blend mode)
+    ctx.save()
+    ctx.globalCompositeOperation = 'difference'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.5
+
+    // Crosshair lines
     ctx.beginPath()
     ctx.moveTo(size / 2, 0)
     ctx.lineTo(size / 2, size)
@@ -695,8 +724,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
     ctx.lineTo(size, size / 2)
     ctx.stroke()
 
+    // Circular perimeter border (SAME color and dynamic reaction as crosshair)
+    ctx.beginPath()
+    ctx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2)
+    ctx.stroke()
+
     ctx.restore()
-  }, [baseImage])
+  }, [baseImage, adjustments.straighten])
 
   useEffect(() => {
     if (loupe?.visible) {
@@ -815,6 +849,60 @@ export const EditorView: React.FC<EditorViewProps> = ({
         screenY: clientY,
         imgX: cornerImgX,
         imgY: cornerImgY
+      })
+    } else if (draggingTarget.type === 'fixed-side') {
+      const side = draggingTarget.side
+      const start = fixedCropStart
+      let newX = start.x
+      let newY = start.y
+      let newW = start.width
+      let newH = start.height
+
+      if (side === 'top') {
+        const targetY = Math.max(0, Math.min(start.y + start.height - 40, start.y + deltaImgY))
+        newY = targetY
+        newH = start.y + start.height - targetY
+        if (selectedAspectRatio.ratio > 0) {
+          newW = Math.min(imgW, Math.round(newH * selectedAspectRatio.ratio))
+          newX = Math.max(0, Math.min(imgW - newW, Math.round(start.x + (start.width - newW) / 2)))
+        }
+      } else if (side === 'bottom') {
+        newH = Math.max(40, Math.min(imgH - start.y, start.height + deltaImgY))
+        if (selectedAspectRatio.ratio > 0) {
+          newW = Math.min(imgW, Math.round(newH * selectedAspectRatio.ratio))
+          newX = Math.max(0, Math.min(imgW - newW, Math.round(start.x + (start.width - newW) / 2)))
+        }
+      } else if (side === 'left') {
+        const targetX = Math.max(0, Math.min(start.x + start.width - 40, start.x + deltaImgX))
+        newX = targetX
+        newW = start.x + start.width - targetX
+        if (selectedAspectRatio.ratio > 0) {
+          newH = Math.min(imgH, Math.round(newW / selectedAspectRatio.ratio))
+          newY = Math.max(0, Math.min(imgH - newH, Math.round(start.y + (start.height - newH) / 2)))
+        }
+      } else if (side === 'right') {
+        newW = Math.max(40, Math.min(imgW - start.x, start.width + deltaImgX))
+        if (selectedAspectRatio.ratio > 0) {
+          newH = Math.min(imgH, Math.round(newW / selectedAspectRatio.ratio))
+          newY = Math.max(0, Math.min(imgH - newH, Math.round(start.y + (start.height - newH) / 2)))
+        }
+      }
+
+      setFixedCropArea({ x: Math.round(newX), y: Math.round(newY), width: Math.round(newW), height: Math.round(newH) })
+
+      let sideImgX = newX + newW / 2
+      let sideImgY = newY + newH / 2
+      if (side === 'top') sideImgY = newY
+      else if (side === 'bottom') sideImgY = newY + newH
+      else if (side === 'left') sideImgX = newX
+      else if (side === 'right') sideImgX = newX + newW
+
+      setLoupe({
+        visible: true,
+        screenX: clientX,
+        screenY: clientY,
+        imgX: sideImgX,
+        imgY: sideImgY
       })
     } else if (draggingTarget.type === 'fixed-box') {
       const start = fixedCropStart
@@ -1119,6 +1207,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
                   {/* 4 Corner Pins (100% exact sub-pixel center aligned with polygon vertices) */}
                   {scanPoints.map((point, index) => {
                     const pinSize = Math.max(12, Math.round(14 / zoom))
+                    const hitSize = Math.max(44, Math.round(48 / zoom))
                     return (
                       <div
                         key={`corner-${index}`}
@@ -1145,12 +1234,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                           }
                         }}
                       >
-                        {/* Centered touch/click hitbox */}
+                        {/* Centered touch/click hitbox guaranteed >= 44 screen px */}
                         <div
                           className="absolute pointer-events-auto"
                           style={{
-                            width: '48px',
-                            height: '48px',
+                            width: `${hitSize}px`,
+                            height: `${hitSize}px`,
                             left: '50%',
                             top: '50%',
                             transform: 'translate(-50%, -50%)'
@@ -1171,6 +1260,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     const midX = (point.x + nextPt.x) / 2
                     const midY = (point.y + nextPt.y) / 2
                     const midSize = Math.max(8, Math.round(10 / zoom))
+                    const hitSize = Math.max(44, Math.round(48 / zoom))
                     return (
                       <div
                         key={`mid-${index}`}
@@ -1200,8 +1290,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         <div
                           className="absolute pointer-events-auto"
                           style={{
-                            width: '40px',
-                            height: '40px',
+                            width: `${hitSize}px`,
+                            height: `${hitSize}px`,
                             left: '50%',
                             top: '50%',
                             transform: 'translate(-50%, -50%)'
@@ -1238,17 +1328,21 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     }
                   }}
                 >
-                  {/* 4 Corner Handles for Fixed Aspect */}
+                  {/* 4 Corner Pins for Fixed Aspect (Exact same visual styling as perspective) */}
                   {(['tl', 'tr', 'br', 'bl'] as const).map(corner => {
                     const isLeft = corner === 'tl' || corner === 'bl'
                     const isTop = corner === 'tl' || corner === 'tr'
+                    const pinSize = Math.max(12, Math.round(14 / zoom))
+                    const hitSize = Math.max(44, Math.round(48 / zoom))
                     return (
                       <div
-                        key={corner}
-                        className="absolute cursor-pointer z-30"
+                        key={`fixed-corner-${corner}`}
+                        className="absolute z-30 flex items-center justify-center cursor-move select-none"
                         style={{
                           left: isLeft ? 0 : '100%',
                           top: isTop ? 0 : '100%',
+                          width: `${pinSize}px`,
+                          height: `${pinSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
                         onMouseDown={(e) => {
@@ -1266,15 +1360,73 @@ export const EditorView: React.FC<EditorViewProps> = ({
                           }
                         }}
                       >
-                        <div className="absolute inset-0 w-12 h-12 -translate-x-1/2 -translate-y-1/2 pointer-events-auto" />
+                        {/* Guaranteed >= 44 screen px touch hitbox */}
                         <div
-                          className="border border-[#0f0b0c] bg-[#faf8f8] pointer-events-none"
+                          className="absolute pointer-events-auto"
                           style={{
-                            width: `${Math.max(10, 14 / zoom)}px`,
-                            height: `${Math.max(10, 14 / zoom)}px`,
+                            width: `${hitSize}px`,
+                            height: `${hitSize}px`,
+                            left: '50%',
+                            top: '50%',
                             transform: 'translate(-50%, -50%)'
                           }}
                         />
+                        {/* Clean 1px Square Pin with Inner Dot — Identical to Perspective */}
+                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none">
+                          <div className="w-1.5 h-1.5 bg-[#0f0b0c]" />
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* 4 Edge Midpoint Handles for Fixed Aspect (Edge manipulation) */}
+                  {(['top', 'right', 'bottom', 'left'] as const).map(side => {
+                    const midSize = Math.max(8, Math.round(10 / zoom))
+                    const hitSize = Math.max(44, Math.round(48 / zoom))
+                    let leftPos = '50%'
+                    let topPos = '50%'
+                    if (side === 'top') { leftPos = '50%'; topPos = '0%' }
+                    else if (side === 'bottom') { leftPos = '50%'; topPos = '100%' }
+                    else if (side === 'left') { leftPos = '0%'; topPos = '50%' }
+                    else if (side === 'right') { leftPos = '100%'; topPos = '50%' }
+
+                    return (
+                      <div
+                        key={`fixed-side-${side}`}
+                        className="absolute z-20 flex items-center justify-center cursor-move select-none"
+                        style={{
+                          left: leftPos,
+                          top: topPos,
+                          width: `${midSize}px`,
+                          height: `${midSize}px`,
+                          transform: 'translate(-50%, -50%)'
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          setDraggingTarget({ type: 'fixed-side', side })
+                          setDragStartPos({ x: e.clientX, y: e.clientY })
+                          setFixedCropStart({ ...fixedCropArea })
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          if (e.touches.length === 1) {
+                            setDraggingTarget({ type: 'fixed-side', side })
+                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+                            setFixedCropStart({ ...fixedCropArea })
+                          }
+                        }}
+                      >
+                        <div
+                          className="absolute pointer-events-auto"
+                          style={{
+                            width: `${hitSize}px`,
+                            height: `${hitSize}px`,
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)'
+                          }}
+                        />
+                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none" />
                       </div>
                     )
                   })}
@@ -1290,10 +1442,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
       </div>
 
-      {/* SNIPER LOUPE (MAGNIFYING GLASS) — ACTIVATES ON PERSPECTIVE & FIXED CROP HANDLES */}
+      {/* SNIPER LOUPE (MAGNIFYING GLASS) — MINECRAFT INVERTED DIFFERENCE CROSSHAIR & UNIFIED BORDER */}
       {loupe?.visible && (
         <div
-          className="fixed pointer-events-none z-50 overflow-hidden border border-[#34292a] shadow-xl bg-white"
+          className="fixed pointer-events-none z-50 overflow-hidden shadow-2xl bg-black"
           style={{
             left: `${Math.max(10, Math.min(window.innerWidth - 120, loupe.screenX - 55))}px`,
             top: `${Math.max(10, loupe.screenY - 130)}px`,
