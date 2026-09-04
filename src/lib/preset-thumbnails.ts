@@ -2,13 +2,40 @@ import { Preset, LightroomAdjustments } from '../types'
 import { applyLightroomAdjustments } from './color-engine'
 import { getDefaultAdjustments } from './presets'
 
+// Simple cache keyed by preset.id (presets are immutable, custom presets get new IDs on save)
 const thumbnailCache = new Map<string, string>()
 let baseLandscapeCanvas: HTMLCanvasElement | null = null
 let baseLandscapeLoaded = false
 let baseLandscapePromise: Promise<HTMLCanvasElement | null> | null = null
 
-const THUMB_W = 360
-const THUMB_H = 240
+const THUMB_W = 240
+const THUMB_H = 160
+
+// Concurrency-limited async queue — max 3 simultaneous canvas computations
+let activeJobs = 0
+const MAX_CONCURRENT = 3
+const pendingQueue: Array<() => void> = []
+
+function runNext() {
+  if (activeJobs >= MAX_CONCURRENT || pendingQueue.length === 0) return
+  const next = pendingQueue.shift()!
+  activeJobs++
+  next()
+}
+
+function scheduleJob<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    pendingQueue.push(() => {
+      fn()
+        .then(resolve, reject)
+        .finally(() => {
+          activeJobs--
+          runNext()
+        })
+    })
+    runNext()
+  })
+}
 
 /**
  * Loads the reference natural landscape image onto an offscreen canvas
@@ -41,7 +68,7 @@ function loadBaseLandscape(): Promise<HTMLCanvasElement | null> {
       }
     }
     img.onerror = () => {
-      // Fallback: draw a pleasant scenic landscape canvas with mountains, lake and sky
+      // Fallback: draw a pleasant scenic landscape canvas
       const canvas = document.createElement('canvas')
       canvas.width = THUMB_W
       canvas.height = THUMB_H
@@ -87,38 +114,47 @@ function loadBaseLandscape(): Promise<HTMLCanvasElement | null> {
 }
 
 /**
- * Generates an authentic nature preview for a specific preset
+ * Generates an authentic nature preview for a specific preset.
+ * Cached by preset.id (presets are immutable; custom presets get new IDs on save).
+ * Concurrency-limited to max 3 simultaneous canvas operations.
  */
 export async function getPresetNatureThumbnail(preset: Preset): Promise<string> {
-  const cacheKey = `${preset.id}_${JSON.stringify(preset.adjustments)}`
-  if (thumbnailCache.has(cacheKey)) {
-    return thumbnailCache.get(cacheKey)!
+  // Fast path: return from cache immediately
+  if (thumbnailCache.has(preset.id)) {
+    return thumbnailCache.get(preset.id)!
   }
 
-  const base = await loadBaseLandscape()
-  if (!base) return ''
+  return scheduleJob(async () => {
+    // Double-check cache after queue wait (another job may have generated it)
+    if (thumbnailCache.has(preset.id)) {
+      return thumbnailCache.get(preset.id)!
+    }
 
-  const canvas = document.createElement('canvas')
-  canvas.width = THUMB_W
-  canvas.height = THUMB_H
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return ''
+    const base = await loadBaseLandscape()
+    if (!base) return ''
 
-  // Draw base landscape
-  ctx.drawImage(base, 0, 0)
+    const canvas = document.createElement('canvas')
+    canvas.width = THUMB_W
+    canvas.height = THUMB_H
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return ''
 
-  // Merge full default adjustments with preset adjustments
-  const merged: LightroomAdjustments = {
-    ...getDefaultAdjustments(),
-    ...preset.adjustments,
-  }
+    // Draw base landscape
+    ctx.drawImage(base, 0, 0)
 
-  // Apply real lightroom adjustments to thumbnail
-  const imageData = ctx.getImageData(0, 0, THUMB_W, THUMB_H)
-  applyLightroomAdjustments(imageData, merged)
-  ctx.putImageData(imageData, 0, 0)
+    // Merge full default adjustments with preset adjustments
+    const merged: LightroomAdjustments = {
+      ...getDefaultAdjustments(),
+      ...preset.adjustments,
+    }
 
-  const dataUrl = canvas.toDataURL('image/webp', 0.95)
-  thumbnailCache.set(cacheKey, dataUrl)
-  return dataUrl
+    // Apply real lightroom adjustments to thumbnail
+    const imageData = ctx.getImageData(0, 0, THUMB_W, THUMB_H)
+    applyLightroomAdjustments(imageData, merged)
+    ctx.putImageData(imageData, 0, 0)
+
+    const dataUrl = canvas.toDataURL('image/webp', 0.70)
+    thumbnailCache.set(preset.id, dataUrl)
+    return dataUrl
+  })
 }

@@ -316,22 +316,41 @@ function detectWithCanvasEdges(
     const bgG = gSamples[midIdx] ?? 240
     const bgB = bSamples[midIdx] ?? 240
 
-    // 2. 2D Sobel Gradient Magnitude Map
+    // 2. Gaussian blur (3x3) on luma map to reduce noise before gradient computation
+    const blurred = new Float32Array(w * h)
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        blurred[y * w + x] =
+          (luma[(y-1)*w+(x-1)] + 2*luma[(y-1)*w+x] + luma[(y-1)*w+(x+1)] +
+           2*luma[y*w+(x-1)]   + 4*luma[y*w+x]     + 2*luma[y*w+(x+1)] +
+           luma[(y+1)*w+(x-1)] + 2*luma[(y+1)*w+x] + luma[(y+1)*w+(x+1)]) / 16
+      }
+    }
+
+    // 3. 2D Sobel Gradient Magnitude Map (on blurred luma)
     const grad = new Float32Array(w * h)
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
         const gx =
-          -luma[(y - 1) * w + (x - 1)] + luma[(y - 1) * w + (x + 1)]
-          - 2 * luma[y * w + (x - 1)] + 2 * luma[y * w + (x + 1)]
-          - luma[(y + 1) * w + (x - 1)] + luma[(y + 1) * w + (x + 1)]
+          -blurred[(y - 1) * w + (x - 1)] + blurred[(y - 1) * w + (x + 1)]
+          - 2 * blurred[y * w + (x - 1)] + 2 * blurred[y * w + (x + 1)]
+          - blurred[(y + 1) * w + (x - 1)] + blurred[(y + 1) * w + (x + 1)]
 
         const gy =
-          -luma[(y - 1) * w + (x - 1)] - 2 * luma[(y - 1) * w + x] - luma[(y - 1) * w + (x + 1)]
-          + luma[(y + 1) * w + (x - 1)] + 2 * luma[(y + 1) * w + x] + luma[(y + 1) * w + (x + 1)]
+          -blurred[(y - 1) * w + (x - 1)] - 2 * blurred[(y - 1) * w + x] - blurred[(y - 1) * w + (x + 1)]
+          + blurred[(y + 1) * w + (x - 1)] + 2 * blurred[(y + 1) * w + x] + blurred[(y + 1) * w + (x + 1)]
 
         grad[y * w + x] = Math.hypot(gx, gy)
       }
     }
+
+    // Adaptive edge threshold: 80th percentile of non-zero gradient values
+    const nonZeroGrads: number[] = []
+    for (let i = 0; i < grad.length; i++) { if (grad[i] > 0) nonZeroGrads.push(grad[i]) }
+    nonZeroGrads.sort((a, b) => a - b)
+    const adaptiveThreshold = nonZeroGrads.length > 0
+      ? nonZeroGrads[Math.floor(nonZeroGrads.length * 0.80)] * 0.3
+      : 20
 
     const getBgDist = (x: number, y: number) => {
       const idx = (y * w + x) * 4
@@ -367,7 +386,7 @@ function detectWithCanvasEdges(
           bestY = y
         }
       }
-      if (bestY > 0 && bestScore > 20) topPts.push({ x, y: bestY })
+      if (bestY > 0 && bestScore > adaptiveThreshold) topPts.push({ x, y: bestY })
     }
 
     // Bottom rays: search upward
@@ -384,7 +403,7 @@ function detectWithCanvasEdges(
           bestY = y
         }
       }
-      if (bestY > 0 && bestScore > 20) botPts.push({ x, y: bestY })
+      if (bestY > 0 && bestScore > adaptiveThreshold) botPts.push({ x, y: bestY })
     }
 
     // Left rays: search inward rightward
@@ -401,7 +420,7 @@ function detectWithCanvasEdges(
           bestX = x
         }
       }
-      if (bestX > 0 && bestScore > 20) leftPts.push({ x: bestX, y })
+      if (bestX > 0 && bestScore > adaptiveThreshold) leftPts.push({ x: bestX, y })
     }
 
     // Right rays: search inward leftward
@@ -418,7 +437,7 @@ function detectWithCanvasEdges(
           bestX = x
         }
       }
-      if (bestX > 0 && bestScore > 20) rightPts.push({ x: bestX, y })
+      if (bestX > 0 && bestScore > adaptiveThreshold) rightPts.push({ x: bestX, y })
     }
 
     // 4. Normal-Form RANSAC & Orthogonal Distance Regression (ODR) line fitting
@@ -459,7 +478,7 @@ function detectWithCanvasEdges(
     ): FittedLine | null => {
       if (pts.length < 4) return null
       let bestInliers: { x: number; y: number }[] = []
-      const iterations = 100
+      const iterations = 120  // Increased from 100 for better coverage
 
       for (let iter = 0; iter < iterations; iter++) {
         const p1 = pts[Math.floor(Math.random() * pts.length)]
@@ -485,6 +504,8 @@ function detectWithCanvasEdges(
         const inliers = pts.filter(p => Math.abs(a * p.x + b * p.y + c) <= threshold)
         if (inliers.length > bestInliers.length) {
           bestInliers = inliers
+          // Early exit: if we have > 85% inliers, this is a great fit
+          if (bestInliers.length / pts.length > 0.85) break
         }
       }
 

@@ -5,7 +5,7 @@ import { generateSampleArtwork } from '../lib/sample-images'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import { getArtworkHistory, deleteArtworkFromHistory, clearArtworkHistory, HistoryArtwork } from '../lib/history-storage'
 import { loadAnyImageFile } from '../lib/image-loader'
-import { LightroomAdjustments, ArtworkInfo } from '../types'
+import { LightroomAdjustments, ArtworkInfo, ImageQueueItem } from '../types'
 
 interface LandingUploadProps {
   onImageSelect: (
@@ -15,9 +15,10 @@ interface LandingUploadProps {
     fileName?: string,
     artworkInfo?: ArtworkInfo
   ) => void
+  onImagesSelect?: (items: ImageQueueItem[]) => void
 }
 
-export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) => {
+export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onImagesSelect }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [showCameraModal, setShowCameraModal] = useState(false)
@@ -45,12 +46,28 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
     setHistoryItems([])
   }
 
-  const processFile = async (file: File) => {
+  const processFiles = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return
     setIsProcessing(true)
     try {
-      const res = await loadAnyImageFile(file)
-      if (res && res.dataUrl) {
-        onImageSelect(res.dataUrl, undefined, undefined, file.name)
+      const items: ImageQueueItem[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const res = await loadAnyImageFile(file)
+        if (res && res.dataUrl) {
+          items.push({
+            id: `art_${Date.now()}_${i}`,
+            url: res.dataUrl,
+            fileName: file.name
+          })
+        }
+      }
+      if (items.length > 0) {
+        if (onImagesSelect) {
+          onImagesSelect(items)
+        } else {
+          onImageSelect(items[0].url, undefined, items[0].id, items[0].fileName)
+        }
       }
     } catch (err) {
       console.error('File processing error:', err)
@@ -64,14 +81,15 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       const items = e.clipboardData?.items
       if (!items) return
 
+      const files: File[] = []
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile()
-          if (file) {
-            processFile(file)
-            break
-          }
+          if (file) files.push(file)
         }
+      }
+      if (files.length > 0) {
+        processFiles(files)
       }
     }
 
@@ -80,9 +98,8 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
   }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      processFile(file)
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files)
     }
     e.target.value = ''
   }
@@ -104,9 +121,8 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
     e.stopPropagation()
     setIsDragging(false)
 
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      processFile(file)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files)
     }
   }
 
@@ -140,6 +156,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         accept="image/*,.heic,.heif,.dng,.tiff,.tif,.avif,.webp,.png,.jpg,.jpeg,.bmp"
         onChange={handleFileChange}
         className="hidden"
@@ -221,10 +238,10 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       {/* Quick Test Samples Shelf */}
       <footer className="w-full max-w-2xl mx-auto pt-1 pb-0 shrink-0">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] sm:text-[11px] font-normal tracking-widest uppercase text-[#565051]">
+          <span className="text-xs font-normal tracking-widest uppercase text-[#565051]">
             Тестовые образцы
           </span>
-          <span className="text-[10px] sm:text-[11px] text-[#565051]">клик для загрузки</span>
+          <span className="text-xs text-[#565051]">клик для загрузки</span>
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
@@ -233,7 +250,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Скан каталога</div>
-            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Тест перспективы</p>
+            <p className="text-xs text-[#565051] truncate">Тест перспективы</p>
           </button>
 
           <button
@@ -241,7 +258,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Масляный портрет</div>
-            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Тональность кожи</p>
+            <p className="text-xs text-[#565051] truncate">Тональность кожи</p>
           </button>
 
           <button
@@ -249,7 +266,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Современный арт</div>
-            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Хроматика цвета</p>
+            <p className="text-xs text-[#565051] truncate">Хроматика цвета</p>
           </button>
         </div>
       </footer>

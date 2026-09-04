@@ -6,7 +6,9 @@ import {
   Undo2,
   Redo2,
   Eye,
-  Clock
+  Clock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import {
   LightroomAdjustments,
@@ -45,6 +47,10 @@ interface EditorViewProps {
   initialScanPoints?: ScanPoint[]
   initialFixedCropArea?: CropArea
   initialDrawerHeight?: number
+  queueTotal?: number
+  queueCurrentIndex?: number
+  onNextImage?: () => void
+  onPrevImage?: () => void
   onBack: () => void
 }
 
@@ -59,6 +65,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
   initialScanPoints,
   initialFixedCropArea,
   initialDrawerHeight,
+  queueTotal,
+  queueCurrentIndex,
+  onNextImage,
+  onPrevImage,
   onBack
 }) => {
   const [artworkId, setArtworkId] = useState(initialArtworkId || `art_${Date.now()}`)
@@ -168,6 +178,23 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const loupeCanvasRef = useRef<HTMLCanvasElement>(null)
+  const exportCompletedRef = useRef(false)
+  const lastClientPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  const startDragging = (
+    target: typeof draggingTarget,
+    clientX: number,
+    clientY: number
+  ) => {
+    setDraggingTarget(target)
+    setDragStartPos({ x: clientX, y: clientY })
+    lastClientPosRef.current = { x: clientX, y: clientY }
+    if (target?.type === 'scan-point' || target?.type === 'scan-side') {
+      setScanPointsStart([...scanPoints])
+    } else if (target && target.type.startsWith('fixed')) {
+      setFixedCropStart({ ...fixedCropArea })
+    }
+  }
 
   const loadHistory = async () => {
     const items = await getArtworkHistory()
@@ -375,7 +402,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
     // Show Before/Original
     if (showBefore) {
-      ctx.clearRect(0, 0, w, h)
+      // Fill solid background to prevent iOS GPU tile artifacts from the body SVG noise texture
+      ctx.fillStyle = '#faf8f8'
+      ctx.fillRect(0, 0, w, h)
       ctx.drawImage(baseImage, 0, 0)
       return
     }
@@ -397,7 +426,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
       const offCtx = offCanvas.getContext('2d', { willReadFrequently: true })
       if (!offCtx) return
 
-      offCtx.clearRect(0, 0, pw, ph)
+      // Solid fill prevents iOS GPU tile compositing artifact
+      offCtx.fillStyle = '#faf8f8'
+      offCtx.fillRect(0, 0, pw, ph)
       if (adjustments.straighten) {
         offCtx.save()
         offCtx.translate(pw / 2, ph / 2)
@@ -419,8 +450,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
       return
     }
 
-    // Full Resolution Render
-    ctx.clearRect(0, 0, w, h)
+    // Full Resolution Render — solid fill first to prevent iOS checkerboard tile artifact
+    ctx.fillStyle = '#faf8f8'
+    ctx.fillRect(0, 0, w, h)
     ctx.save()
     if (adjustments.straighten) {
       ctx.translate(w / 2, h / 2)
@@ -493,6 +525,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
     document.body.removeChild(a)
 
     saveSnapshotToHistory()
+
+    // Auto-advance to next image in queue if available
+    if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
+      setTimeout(() => {
+        onNextImage()
+      }, 350)
+    }
   }
 
   // --- CROP ACTIONS ---
@@ -559,22 +598,56 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const w = (baseImage as HTMLImageElement).naturalWidth || (baseImage as HTMLCanvasElement).width
     const h = (baseImage as HTMLImageElement).naturalHeight || (baseImage as HTMLCanvasElement).height
 
-    // 1. Detect corners directly on pristine baseImage (no transparent wedge artifacts from canvas rotation)
-    const detected = await detectDocumentCorners(baseImage, w, h)
+    let detectionSource: CanvasImageSource = baseImage
+    let detW = w
+    let detH = h
+
+    // Burn straighten rotation into a temporary canvas so the detector sees exactly
+    // what the user sees (rotation is normally applied as CSS transform on the canvas element,
+    // not baked into the image data — this caused detection to fail on rotated images)
+    if (adjustments.straighten) {
+      const rad = (adjustments.straighten * Math.PI) / 180
+      const cosA = Math.abs(Math.cos(rad))
+      const sinA = Math.abs(Math.sin(rad))
+      // Bounding box of rotated image
+      detW = Math.ceil(w * cosA + h * sinA)
+      detH = Math.ceil(w * sinA + h * cosA)
+
+      const rotCanvas = document.createElement('canvas')
+      rotCanvas.width = detW
+      rotCanvas.height = detH
+      const rotCtx = rotCanvas.getContext('2d')
+      if (rotCtx) {
+        rotCtx.fillStyle = '#faf8f8'
+        rotCtx.fillRect(0, 0, detW, detH)
+        rotCtx.save()
+        rotCtx.translate(detW / 2, detH / 2)
+        rotCtx.rotate(rad)
+        rotCtx.drawImage(baseImage, -w / 2, -h / 2)
+        rotCtx.restore()
+        detectionSource = rotCanvas
+      }
+    }
+
+    const detected = await detectDocumentCorners(detectionSource, detW, detH)
     if (detected && detected.length === 4) {
       let finalPoints = detected
 
-      // 2. If straighten rotation is active, rigidly rotate corners around image center into screen canvas space
-      if (adjustments.straighten) {
+      // If we detected on a rotated canvas, transform corners back to original image coords
+      if (adjustments.straighten && detW !== w) {
         const rad = (adjustments.straighten * Math.PI) / 180
-        const cos = Math.cos(rad)
-        const sin = Math.sin(rad)
+        const cos = Math.cos(-rad)
+        const sin = Math.sin(-rad)
+        const cxDet = detW / 2
+        const cyDet = detH / 2
         const cx = w / 2
         const cy = h / 2
         finalPoints = orderCorners(
           detected.map(p => {
-            const rx = (p.x - cx) * cos - (p.y - cy) * sin + cx
-            const ry = (p.x - cx) * sin + (p.y - cy) * cos + cy
+            const dx = p.x - cxDet
+            const dy = p.y - cyDet
+            const rx = dx * cos - dy * sin + cx
+            const ry = dx * sin + dy * cos + cy
             return {
               x: Math.max(0, Math.min(w, Math.round(rx))),
               y: Math.max(0, Math.min(h, Math.round(ry)))
@@ -600,6 +673,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       initCropBounds(w, h)
     }
   }
+
 
   const handleResetCropPoints = () => {
     // 1. Reset gradual angle manipulation to 0
@@ -744,6 +818,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (draggingTarget) return
     setIsPanning(true)
     setPanStart({ x: clientX - pan.x, y: clientY - pan.y })
+    lastClientPosRef.current = { x: clientX, y: clientY }
   }
 
   const handlePointerMove = (clientX: number, clientY: number) => {
@@ -760,9 +835,38 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
     if (!draggingTarget) return
 
+    const prevClient = lastClientPosRef.current
+    const stepDist = Math.hypot(clientX - prevClient.x, clientY - prevClient.y)
+    lastClientPosRef.current = { x: clientX, y: clientY }
+
+    const rawDx = clientX - dragStartPos.x
+    const rawDy = clientY - dragStartPos.y
+    const totalDist = Math.hypot(rawDx, rawDy)
+
+    // Dynamic re-anchoring: if user dragged far (>24px) and then slows down to make micro-adjustments (<2.5px step)
+    let curStartPos = dragStartPos
+    if (totalDist > 24 && stepDist < 2.5) {
+      curStartPos = { x: clientX, y: clientY }
+      setDragStartPos(curStartPos)
+      if (draggingTarget.type === 'scan-point' || draggingTarget.type === 'scan-side') {
+        setScanPointsStart([...scanPoints])
+      } else if (draggingTarget.type.startsWith('fixed')) {
+        setFixedCropStart({ ...fixedCropArea })
+      }
+    }
+
+    const effectiveDx = clientX - curStartPos.x
+    const effectiveDy = clientY - curStartPos.y
+    const effectiveDist = Math.hypot(effectiveDx, effectiveDy)
+
+    // Adaptive micro-adjustment sensitivity:
+    // When making tiny adjustments (dist < 24px), smooth damping (0.35x - 0.5x) eliminates jumpiness and loupe jitter.
+    // When making deliberate fast drags (dist >= 24px), full 1.0x speed ensures zero drag lag.
+    const microDamping = effectiveDist < 24 ? 0.35 + 0.65 * (effectiveDist / 24) : 1.0
+
     // Delta in natural image pixels
-    const deltaImgX = (clientX - dragStartPos.x) / zoom
-    const deltaImgY = (clientY - dragStartPos.y) / zoom
+    const deltaImgX = (effectiveDx * microDamping) / zoom
+    const deltaImgY = (effectiveDy * microDamping) / zoom
 
     if (draggingTarget.type === 'scan-point') {
       const idx = draggingTarget.index
@@ -1006,6 +1110,31 @@ export const EditorView: React.FC<EditorViewProps> = ({
           >
             <Clock className="w-4 h-4" />
           </button>
+
+          {/* Multi-image queue pagination < x / N > */}
+          {queueTotal && queueTotal > 1 ? (
+            <div className="flex items-center border border-[#e3dbdc] bg-white text-xs select-none">
+              <button
+                onClick={onPrevImage}
+                disabled={queueCurrentIndex === 0}
+                className="w-7 h-7 flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                title="Предыдущее фото"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-1.5 font-mono text-xs text-[#0f0b0c] whitespace-nowrap">
+                {(queueCurrentIndex ?? 0) + 1} / {queueTotal}
+              </span>
+              <button
+                onClick={onNextImage}
+                disabled={queueCurrentIndex === queueTotal - 1}
+                className="w-7 h-7 flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                title="Следующее фото"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Center: Undo, Redo, Before/After */}
@@ -1166,7 +1295,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       >
         {/* Before watermark */}
         {showBefore && (
-          <div className="absolute top-4 left-4 z-20 px-2.5 py-0.5 bg-[#faf8f8] border border-[#e3dbdc] text-[11px] font-mono text-[#0f0b0c] uppercase pointer-events-none">
+          <div className="absolute top-4 left-4 z-20 px-2.5 py-0.5 bg-[#faf8f8] border border-[#e3dbdc] text-xs font-mono text-[#0f0b0c] uppercase pointer-events-none">
             Оригинал
           </div>
         )}
@@ -1180,8 +1309,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
             height: h
           }}
         >
-          {/* Base Canvas */}
-          <canvas ref={canvasRef} className="block w-full h-full pointer-events-none" />
+          {/* Base Canvas — explicit background prevents iOS GPU tile artifact */}
+          <canvas ref={canvasRef} className="block w-full h-full pointer-events-none" style={{ backgroundColor: '#faf8f8' }} />
 
           {/* --- INTEGRATED CROP OVERLAYS (WHEN CROP TAB IS ACTIVE) --- */}
           {activeTab === 'crop' && (
@@ -1222,16 +1351,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
-                          setDraggingTarget({ type: 'scan-point', index })
-                          setDragStartPos({ x: e.clientX, y: e.clientY })
-                          setScanPointsStart([...scanPoints])
+                          startDragging({ type: 'scan-point', index }, e.clientX, e.clientY)
                         }}
                         onTouchStart={(e) => {
                           e.stopPropagation()
                           if (e.touches.length === 1) {
-                            setDraggingTarget({ type: 'scan-point', index })
-                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                            setScanPointsStart([...scanPoints])
+                            startDragging({ type: 'scan-point', index }, e.touches[0].clientX, e.touches[0].clientY)
                           }
                         }}
                       >
@@ -1275,16 +1400,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
-                          setDraggingTarget({ type: 'scan-side', index })
-                          setDragStartPos({ x: e.clientX, y: e.clientY })
-                          setScanPointsStart([...scanPoints])
+                          startDragging({ type: 'scan-side', index }, e.clientX, e.clientY)
                         }}
                         onTouchStart={(e) => {
                           e.stopPropagation()
                           if (e.touches.length === 1) {
-                            setDraggingTarget({ type: 'scan-side', index })
-                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                            setScanPointsStart([...scanPoints])
+                            startDragging({ type: 'scan-side', index }, e.touches[0].clientX, e.touches[0].clientY)
                           }
                         }}
                       >
@@ -1316,16 +1437,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                   }}
                   onMouseDown={(e) => {
                     e.stopPropagation()
-                    setDraggingTarget({ type: 'fixed-box' })
-                    setDragStartPos({ x: e.clientX, y: e.clientY })
-                    setFixedCropStart({ ...fixedCropArea })
+                    startDragging({ type: 'fixed-box' }, e.clientX, e.clientY)
                   }}
                   onTouchStart={(e) => {
                     e.stopPropagation()
                     if (e.touches.length === 1) {
-                      setDraggingTarget({ type: 'fixed-box' })
-                      setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                      setFixedCropStart({ ...fixedCropArea })
+                      startDragging({ type: 'fixed-box' }, e.touches[0].clientX, e.touches[0].clientY)
                     }
                   }}
                 >
@@ -1348,16 +1465,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
-                          setDraggingTarget({ type: 'fixed-corner', corner })
-                          setDragStartPos({ x: e.clientX, y: e.clientY })
-                          setFixedCropStart({ ...fixedCropArea })
+                          startDragging({ type: 'fixed-corner', corner }, e.clientX, e.clientY)
                         }}
                         onTouchStart={(e) => {
                           e.stopPropagation()
                           if (e.touches.length === 1) {
-                            setDraggingTarget({ type: 'fixed-corner', corner })
-                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                            setFixedCropStart({ ...fixedCropArea })
+                            startDragging({ type: 'fixed-corner', corner }, e.touches[0].clientX, e.touches[0].clientY)
                           }
                         }}
                       >
@@ -1404,16 +1517,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
-                          setDraggingTarget({ type: 'fixed-side', side })
-                          setDragStartPos({ x: e.clientX, y: e.clientY })
-                          setFixedCropStart({ ...fixedCropArea })
+                          startDragging({ type: 'fixed-side', side }, e.clientX, e.clientY)
                         }}
                         onTouchStart={(e) => {
                           e.stopPropagation()
                           if (e.touches.length === 1) {
-                            setDraggingTarget({ type: 'fixed-side', side })
-                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                            setFixedCropStart({ ...fixedCropArea })
+                            startDragging({ type: 'fixed-side', side }, e.touches[0].clientX, e.touches[0].clientY)
                           }
                         }}
                       >
@@ -1485,7 +1594,20 @@ export const EditorView: React.FC<EditorViewProps> = ({
       {/* Export Modal (Supports direct export and Export as Post 3:4) */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        onClose={() => {
+          setShowExportModal(false)
+          if (exportCompletedRef.current) {
+            exportCompletedRef.current = false
+            if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
+              setTimeout(() => {
+                onNextImage()
+              }, 250)
+            }
+          }
+        }}
+        onExportComplete={() => {
+          exportCompletedRef.current = true
+        }}
         canvas={canvasRef.current}
         originalFileName={fileName}
         artworkTitle={artworkInfo.title}

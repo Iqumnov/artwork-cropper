@@ -118,3 +118,13 @@ export interface Preset {
 
 export type EditorTab = 'crop' | 'light' | 'color' | 'effects' | 'detail' | 'curves' | 'presets'
 
+export interface ImageQueueItem {
+  id: string
+  url: string
+  fileName?: string
+  artworkInfo?: ArtworkInfo
+  adjustments?: LightroomAdjustments
+  scanPoints?: ScanPoint[]
+  fixedCropArea?: CropArea
+  cropMode?: 'scan' | 'fixed'
+}

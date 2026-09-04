@@ -5,6 +5,7 @@ import { ArtworkInfo } from '../types'
 interface ExportModalProps {
   isOpen: boolean
   onClose: () => void
+  onExportComplete?: () => void
   canvas: HTMLCanvasElement | null
   originalFileName?: string
   artworkTitle?: string
@@ -97,6 +98,7 @@ function createPostCanvas(
 export const ExportModal: React.FC<ExportModalProps> = ({
   isOpen,
   onClose,
+  onExportComplete,
   canvas,
   originalFileName,
   artworkTitle,
@@ -206,6 +208,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
+    if (onExportComplete) onExportComplete()
     onClose()
   }
 
@@ -258,7 +261,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <LayoutTemplate className="w-4 h-4 text-[#565051]" />
             <div className="flex flex-col">
               <span className="text-xs font-normal text-[#0f0b0c]">Экспортировать как пост</span>
-              <span className="text-[10px] text-[#565051]">Карточка 3:4 с подписью автора и техники</span>
+              <span className="text-xs text-[#565051]">Карточка 3:4 с подписью автора и техники</span>
             </div>
           </div>
           <button
@@ -279,13 +282,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Artwork Metadata Fields (Visible when Export as Post is active) */}
         {isExportAsPost && (
           <div className="flex flex-col gap-2 p-3 bg-white border border-[#e3dbdc]">
-            <span className="text-[11px] font-normal uppercase tracking-wider text-[#565051]">
+            <span className="text-xs font-normal uppercase tracking-wider text-[#565051]">
               Данные для карточки поста
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-[#565051]">Название работы</label>
+                <label className="text-xs text-[#565051]">Название работы</label>
                 <input
                   type="text"
                   value={localInfo.title}
@@ -296,7 +299,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-[#565051]">Автор</label>
+                <label className="text-xs text-[#565051]">Автор</label>
                 <input
                   type="text"
                   value={localInfo.artist}
@@ -307,7 +310,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-[#565051]">Техника</label>
+                <label className="text-xs text-[#565051]">Техника</label>
                 <input
                   type="text"
                   value={localInfo.medium || ''}
@@ -318,7 +321,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-[#565051]">Размер</label>
+                <label className="text-xs text-[#565051]">Размер</label>
                 <input
                   type="text"
                   value={localInfo.dimensions || ''}
@@ -329,7 +332,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="text-[10px] text-[#565051]">Год</label>
+                <label className="text-xs text-[#565051]">Год создания</label>
                 <input
                   type="text"
                   value={localInfo.year || ''}

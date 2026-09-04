@@ -227,14 +227,14 @@ export const ToneCurveEditor: React.FC<ToneCurveEditorProps> = ({
       </div>
 
       <div className="flex items-center justify-between w-[220px] text-xs">
-        <span className="text-[11px] text-[#565051]">
+        <span className="text-xs text-[#565051]">
           {activePointIndex !== null && points[activePointIndex]
             ? `Вход: ${points[activePointIndex].x} / Выход: ${points[activePointIndex].y}`
             : 'Кликните для добавления точек'}
         </span>
         <button
           onClick={handleResetCurve}
-          className="flex items-center gap-1 text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer border border-transparent hover:border-[#e3dbdc] px-1.5 py-0.5"
+          className="flex items-center gap-1 text-xs text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer border border-transparent hover:border-[#e3dbdc] px-2 py-0.5"
           title="Сбросить кривую"
         >
           <RotateCcw className="w-3 h-3" />

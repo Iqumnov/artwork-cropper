@@ -126,17 +126,24 @@ body {
   font-weight: 400 !important;
 }
 
-/* Editorial Sliders (strictly 1px border track) */
+/* Editorial Sliders (strictly 1px border track, compact 20px row, generous 24px touch thumb) */
 input[type="range"].lr-slider {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
   height: 20px;
+  padding: 0;
+  margin: 0;
+  touch-action: none;
 }
 
 input[type="range"].lr-slider:focus {
   outline: none;
+}
+
+input[type="range"].lr-slider::-webkit-slider-container {
+  overflow: visible;
 }
 
 input[type="range"].lr-slider::-webkit-slider-runnable-track {
@@ -149,19 +156,66 @@ input[type="range"].lr-slider:hover::-webkit-slider-runnable-track {
   background: #34292a;
 }
 
+input[type="range"].lr-slider:active::-webkit-slider-runnable-track {
+  background: #34292a;
+}
+
 input[type="range"].lr-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  height: 12px;
-  width: 12px;
+  /* Hitbox: 24×24px touch target, Visual: 12×12px crisp square via transparent border */
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 6px solid transparent;
+  background-clip: padding-box;
+  background-color: #0f0b0c;
   border-radius: 0;
-  background: #0f0b0c;
-  border: 1px solid #faf8f8;
-  margin-top: -5.5px;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  margin-top: -11.5px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.12s ease;
 }
 
 input[type="range"].lr-slider:active::-webkit-slider-thumb {
   transform: scale(1.2);
+  background-color: #34292a;
+}
+
+/* Firefox */
+input[type="range"].lr-slider::-moz-range-track {
+  height: 1px;
+  background: #e3dbdc;
+  border: none;
+}
+
+input[type="range"].lr-slider:hover::-moz-range-track {
   background: #34292a;
+}
+
+input[type="range"].lr-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 6px solid transparent;
+  background-clip: padding-box;
+  background-color: #0f0b0c;
+  border-radius: 0;
+  cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+input[type="range"].lr-slider:active::-moz-range-thumb {
+  transform: scale(1.2);
+  background-color: #34292a;
+}
+
+/* Mobile typography standards: ensure high legibility on small screens */
+@media (max-width: 640px) {
+  .text-\[10px\], .text-\[11px\] {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+  .text-xs {
+    font-size: 12.5px !important;
+  }
 }

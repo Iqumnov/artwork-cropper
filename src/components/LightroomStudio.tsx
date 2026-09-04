@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import {
   Crop,
   Sun,
@@ -219,17 +219,27 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     <div
       className="w-full flex flex-col bg-[#faf8f8] border-t border-[#e3dbdc] select-none text-[#0f0b0c] relative"
       style={{ height: `${drawerHeight}px` }}
+      onTouchStart={(e) => {
+        // Stop touch events from bubbling to the canvas viewport drag handler
+        e.stopPropagation()
+      }}
+      onTouchMove={(e) => {
+        e.stopPropagation()
+      }}
     >
-      {/* Resizable Drag Handle Bar */}
+      {/* Resizable Drag Handle Bar — compact container with expanded 30px touch hitbox */}
       <div
         onMouseDown={(e) => handleResizeStart(e.clientY)}
         onTouchStart={(e) => {
+          e.stopPropagation()
           if (e.touches.length === 1) handleResizeStart(e.touches[0].clientY)
         }}
-        className="w-full h-2 cursor-row-resize flex items-center justify-center hover:bg-[#e3dbdc]/40 transition-colors shrink-0"
+        className="w-full cursor-row-resize flex items-center justify-center relative hover:bg-[#e3dbdc]/40 transition-colors shrink-0 h-2.5 select-none"
         title="Потяните для изменения высоты меню"
       >
-        <div className="w-8 h-0.5 bg-[#e3dbdc] rounded-none" />
+        {/* Generous invisible touch hitbox extending above and below */}
+        <div className="absolute -top-3 -bottom-3 inset-x-0 cursor-row-resize" />
+        <div className="w-8 h-0.5 bg-[#e3dbdc] rounded-none pointer-events-none" />
       </div>
 
       {/* Category Tabs (Cropping is Tab 1) */}
@@ -274,10 +284,14 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
         </button>
       </div>
 
-      {/* Main Tab Panels Container (Fixed height across tabs, scrollable inside) */}
-      <div className="flex-1 p-3 sm:p-4 max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar">
-        {/* --- CROP CONTROLS (TAB 1) --- */}
-        {activeTab === 'crop' && (
+      {/* Full-width scrollable container — touching margins or empty space scrolls the drawer */}
+      <div
+        className="flex-1 w-full overflow-y-auto overscroll-contain no-scrollbar"
+        style={{ touchAction: 'pan-y' }}
+      >
+        <div className="max-w-2xl mx-auto p-3 sm:p-4 w-full">
+          {/* --- CROP CONTROLS (TAB 1) --- */}
+          {activeTab === 'crop' && (
           <div className="flex flex-col gap-2.5">
             {/* Mode Switcher */}
             <div className="flex items-center justify-between gap-2">
@@ -420,7 +434,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
             <div className="flex items-center gap-2.5 bg-white p-2 border border-[#e3dbdc]">
               <div className="flex items-center gap-1.5 shrink-0 text-xs text-[#0f0b0c]">
                 <RotateCw className="w-3.5 h-3.5 text-[#565051]" />
-                <span className="text-[11px] sm:text-xs font-normal">Угол наклона</span>
+                <span className="text-xs font-normal">Угол наклона</span>
               </div>
               <input
                 type="range"
@@ -438,8 +452,8 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                 </span>
                 {adjustments.straighten !== 0 && (
                   <button
-                    onClick={() => updateAdj('straighten', 0)}
-                    className="text-[10px] px-1.5 py-0.5 border border-[#e3dbdc] hover:border-[#34292a] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
+                    onClick={() => onChange({ ...adjustments, straighten: 0 })}
+                    className="text-xs px-2 py-0.5 border border-[#e3dbdc] hover:border-[#34292a] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
                     title="Сбросить угол в 0°"
                   >
                     0°
@@ -577,7 +591,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                         className="w-2 h-2"
                         style={{ backgroundColor: HSL_HEX[ch] }}
                       />
-                      <span className="text-[11px]">{HSL_NAMES_RU[ch]}</span>
+                      <span className="text-xs">{HSL_NAMES_RU[ch]}</span>
                     </button>
                   )
                 })}
@@ -806,7 +820,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
           <div className="flex flex-col gap-3">
             {/* Save Custom Preset Header */}
             <div className="flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider text-[#565051] font-normal">
+              <span className="text-xs uppercase tracking-wider text-[#565051] font-normal">
                 Коллекция пресетов
               </span>
               {!isSavingPreset ? (
@@ -871,92 +885,126 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
             </div>
 
             {/* Presets by Groups: Custom Group ALWAYS 1st */}
-            <div className="flex flex-col gap-4 pt-1">
-              {/* Group 1: Custom Presets (Always First) */}
-              {(selectedPresetCategory === 'Все' || selectedPresetCategory === 'Пользовательские') && (
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal pb-0.5">
-                    <span>Пользовательские пресеты</span>
-                    <span>{customPresets.length}</span>
-                  </div>
-
-                  {customPresets.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                      {customPresets.map((preset) => (
-                        <PresetNatureCard
-                          key={preset.id}
-                          preset={preset}
-                          onApply={handleApplyPreset}
-                          onDelete={handleDeleteCustomPreset}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    selectedPresetCategory === 'Пользовательские' && (
-                      <div className="text-xs text-[#565051] py-4 text-center border border-dashed border-[#e3dbdc]">
-                        Нет сохраненных стилей. Нажмите кнопку «Добавить», чтобы сохранить текущие настройки.
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-
-              {/* Built-in Groups (Плёнка, Слайд, Монохром, Кино, Архив, Арт) */}
-              {(['Плёнка', 'Слайд', 'Монохром', 'Кино', 'Архив', 'Арт'] as const)
-                .filter((cat) => selectedPresetCategory === 'Все' || selectedPresetCategory === cat)
-                .map((category) => {
-                  const categoryPresets = LIGHTROOM_PRESETS.filter((p) => p.category === category)
-                  if (categoryPresets.length === 0) return null
-
-                  return (
-                    <div key={category} className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal pb-0.5">
-                        <span>{category}</span>
-                        <span>{categoryPresets.length}</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                        {categoryPresets.map((preset) => (
-                          <PresetNatureCard
-                            key={preset.id}
-                            preset={preset}
-                            onApply={handleApplyPreset}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-            </div>
+            <PresetGroups
+              selectedPresetCategory={selectedPresetCategory}
+              customPresets={customPresets}
+              onApply={handleApplyPreset}
+              onDelete={handleDeleteCustomPreset}
+            />
           </div>
         )}
+        </div>
       </div>
     </div>
   )
 }
 
-// Preset Card with Live Applied Nature Landscape Preview
+
+// PresetGroups — memoized category grouping to avoid filtering 170+ presets on every render
+const BUILTIN_CATEGORIES = ['Плёнка', 'Слайд', 'Монохром', 'Кино', 'Архив', 'Арт'] as const
+
+const PresetGroups: React.FC<{
+  selectedPresetCategory: string
+  customPresets: Preset[]
+  onApply: (preset: Preset) => void
+  onDelete: (id: string, e: React.MouseEvent) => void
+}> = ({ selectedPresetCategory, customPresets, onApply, onDelete }) => {
+  const groupedPresets = useMemo(() => {
+    return BUILTIN_CATEGORIES.map((cat) => ({
+      category: cat,
+      presets: LIGHTROOM_PRESETS.filter((p) => p.category === cat)
+    })).filter((g) => g.presets.length > 0)
+  }, [])
+
+  const showCustom = selectedPresetCategory === 'Все' || selectedPresetCategory === 'Пользовательские'
+  const showAll = selectedPresetCategory === 'Все'
+
+  return (
+    <div className="flex flex-col gap-4 pt-1">
+      {/* Custom Presets Group */}
+      {showCustom && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-xs uppercase tracking-wider text-[#565051] font-normal pb-0.5">
+            <span>Пользовательские пресеты</span>
+            <span>{customPresets.length}</span>
+          </div>
+          {customPresets.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {customPresets.map((preset) => (
+                <PresetNatureCard key={preset.id} preset={preset} onApply={onApply} onDelete={onDelete} />
+              ))}
+            </div>
+          ) : (
+            selectedPresetCategory === 'Пользовательские' && (
+              <div className="text-xs text-[#565051] py-4 text-center border border-dashed border-[#e3dbdc]">
+                Нет сохраненных стилей. Нажмите кнопку «Добавить», чтобы сохранить текущие настройки.
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Built-in Groups */}
+      {groupedPresets
+        .filter((g) => showAll || selectedPresetCategory === g.category)
+        .map(({ category, presets }) => (
+          <div key={category} className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wider text-[#565051] font-normal pb-0.5">
+              <span>{category}</span>
+              <span>{presets.length}</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {presets.map((preset) => (
+                <PresetNatureCard key={preset.id} preset={preset} onApply={onApply} />
+              ))}
+            </div>
+          </div>
+        ))}
+    </div>
+  )
+}
+
+// Preset Card — lazy thumbnail via IntersectionObserver (only generates when scrolled into view)
 const PresetNatureCard: React.FC<{
   preset: Preset
   onApply: (preset: Preset) => void
   onDelete?: (id: string, e: React.MouseEvent) => void
 }> = ({ preset, onApply, onDelete }) => {
   const [thumbSrc, setThumbSrc] = useState<string>('')
+  const [isVisible, setIsVisible] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
 
+  // IntersectionObserver: only trigger thumbnail generation when card enters the viewport
   useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '120px' } // pre-load 120px before entering view
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  // Only generate thumbnail once the card is visible
+  useEffect(() => {
+    if (!isVisible) return
     let isMounted = true
     getPresetNatureThumbnail(preset).then((url) => {
-      if (isMounted && url) {
-        setThumbSrc(url)
-      }
+      if (isMounted && url) setThumbSrc(url)
     })
-    return () => {
-      isMounted = false
-    }
-  }, [preset])
+    return () => { isMounted = false }
+  }, [isVisible, preset.id]) // preset.id only — presets are immutable
 
   return (
     <div
+      ref={cardRef}
       onClick={() => onApply(preset)}
       className="group relative flex flex-col bg-white border border-[#e3dbdc] hover:border-[#34292a] overflow-hidden text-left transition-colors cursor-pointer"
     >
@@ -970,7 +1018,7 @@ const PresetNatureCard: React.FC<{
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[10px] text-[#565051] bg-[#f5f2f2] animate-pulse">
-            Пейзаж...
+            {isVisible ? 'Загрузка...' : ''}
           </div>
         )}
 
@@ -990,13 +1038,14 @@ const PresetNatureCard: React.FC<{
         <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
           {preset.name}
         </span>
-        <span className="text-[10px] text-[#565051] truncate mt-0.5">
+        <span className="text-xs text-[#565051] truncate mt-0.5">
           {preset.category}
         </span>
       </div>
     </div>
   )
 }
+
 
 // Reusable Lightroom Slider Row (Strictly 1px)
 interface SliderRowProps {
@@ -1029,7 +1078,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
   return (
     <div className="flex flex-col gap-0.5 w-full">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[#0f0b0c] font-normal tracking-tight text-[11px] sm:text-xs flex items-center gap-1.5">
+        <span className="text-[#0f0b0c] font-normal tracking-tight text-xs flex items-center gap-1.5">
           {accent && (
             <span
               className="w-1.5 h-1.5"
@@ -1040,14 +1089,16 @@ const SliderRow: React.FC<SliderRowProps> = ({
         </span>
         <button
           onClick={onReset}
-          className="font-mono text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-1 hover:bg-[#e3dbdc]/40"
+          className="font-mono text-xs text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-1 hover:bg-[#e3dbdc]/40"
           title="Клик для сброса на 0"
+          style={{ minHeight: '28px', minWidth: '28px' }}
         >
           {displayVal}
         </button>
       </div>
 
-      <div className="relative flex items-center">
+      {/* touch-action: none prevents iOS scroll hijacking while dragging slider */}
+      <div className="relative flex items-center" style={{ touchAction: 'none' }}>
         <input
           type="range"
           min={min}
@@ -1057,6 +1108,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
           onInput={(e) => onChange(parseFloat((e.target as HTMLInputElement).value))}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="w-full lr-slider"
+          style={{ touchAction: 'none' }}
         />
         {min < 0 && max > 0 && (
           <div className="absolute left-1/2 -translate-x-1/2 w-px h-2 bg-[#565051]/40 pointer-events-none" />
