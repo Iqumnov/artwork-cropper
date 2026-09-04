@@ -256,196 +256,240 @@ function detectWithCanvasEdges(
   naturalHeight: number
 ): ScanPoint[] {
   const defaultCorners: ScanPoint[] = [
-    { x: Math.round(naturalWidth * 0.06), y: Math.round(naturalHeight * 0.06) },
-    { x: Math.round(naturalWidth * 0.94), y: Math.round(naturalHeight * 0.06) },
-    { x: Math.round(naturalWidth * 0.94), y: Math.round(naturalHeight * 0.94) },
-    { x: Math.round(naturalWidth * 0.06), y: Math.round(naturalHeight * 0.94) }
+    { x: Math.round(naturalWidth * 0.05), y: Math.round(naturalHeight * 0.05) },
+    { x: Math.round(naturalWidth * 0.95), y: Math.round(naturalHeight * 0.05) },
+    { x: Math.round(naturalWidth * 0.95), y: Math.round(naturalHeight * 0.95) },
+    { x: Math.round(naturalWidth * 0.05), y: Math.round(naturalHeight * 0.95) }
   ]
 
   try {
     const canvas = document.createElement('canvas')
-    const maxDim = 360
+    const maxDim = 540
     const scale = Math.min(maxDim / naturalWidth, maxDim / naturalHeight)
-    const w = Math.max(40, Math.round(naturalWidth * scale))
-    const h = Math.max(40, Math.round(naturalHeight * scale))
+    const w = Math.max(60, Math.round(naturalWidth * scale))
+    const h = Math.max(60, Math.round(naturalHeight * scale))
     canvas.width = w
     canvas.height = h
 
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return defaultCorners
 
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(sourceImage, 0, 0, w, h)
     const imgData = ctx.getImageData(0, 0, w, h)
     const data = imgData.data
 
+    // 1. Grayscale luminance and perimeter background color sampling
     const luma = new Float32Array(w * h)
-    for (let i = 0; i < w * h; i++) {
-      const idx = i * 4
-      luma[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]
-    }
-
-    let bgSum = 0
-    let bgCount = 0
-    const rim = Math.max(2, Math.round(Math.min(w, h) * 0.03))
+    let bgR = 0, bgG = 0, bgB = 0, bgCount = 0
+    const rimX = Math.max(2, Math.round(w * 0.035))
+    const rimY = Math.max(2, Math.round(h * 0.035))
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (x < rim || x >= w - rim || y < rim || y >= h - rim) {
-          bgSum += luma[y * w + x]
+        const idx = (y * w + x) * 4
+        const r = data[idx]
+        const g = data[idx + 1]
+        const b = data[idx + 2]
+        luma[y * w + x] = 0.299 * r + 0.587 * g + 0.114 * b
+
+        if (x < rimX || x >= w - rimX || y < rimY || y >= h - rimY) {
+          bgR += r
+          bgG += g
+          bgB += b
           bgCount++
         }
       }
     }
-    const bgLuma = bgCount > 0 ? bgSum / bgCount : 128
+    bgR = bgCount > 0 ? bgR / bgCount : 240
+    bgG = bgCount > 0 ? bgG / bgCount : 240
+    bgB = bgCount > 0 ? bgB / bgCount : 240
 
-    const numRays = 24
-    const topCandidates: { x: number; y: number; strength: number }[] = []
-    const bottomCandidates: { x: number; y: number; strength: number }[] = []
-    const leftCandidates: { x: number; y: number; strength: number }[] = []
-    const rightCandidates: { x: number; y: number; strength: number }[] = []
+    // 2. 2D Sobel Gradient Magnitude Map
+    const grad = new Float32Array(w * h)
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const gx =
+          -luma[(y - 1) * w + (x - 1)] + luma[(y - 1) * w + (x + 1)]
+          - 2 * luma[y * w + (x - 1)] + 2 * luma[y * w + (x + 1)]
+          - luma[(y + 1) * w + (x - 1)] + luma[(y + 1) * w + (x + 1)]
 
-    const minDepthY = Math.max(2, Math.round(h * 0.02))
-    const maxDepthY = Math.round(h * 0.44)
-    const minDepthX = Math.max(2, Math.round(w * 0.02))
-    const maxDepthX = Math.round(w * 0.44)
+        const gy =
+          -luma[(y - 1) * w + (x - 1)] - 2 * luma[(y - 1) * w + x] - luma[(y - 1) * w + (x + 1)]
+          + luma[(y + 1) * w + (x - 1)] + 2 * luma[(y + 1) * w + x] + luma[(y + 1) * w + (x + 1)]
 
+        grad[y * w + x] = Math.hypot(gx, gy)
+      }
+    }
+
+    const getBgDist = (x: number, y: number) => {
+      const idx = (y * w + x) * 4
+      const dr = data[idx] - bgR
+      const dg = data[idx + 1] - bgG
+      const db = data[idx + 2] - bgB
+      return Math.sqrt(dr * dr + dg * dg + db * db)
+    }
+
+    // 3. Dense Inward Ray-Casting (40 rays per side) with Outer Edge Peak Detection
+    const numRays = 40
+    const topPts: { x: number; y: number }[] = []
+    const botPts: { x: number; y: number }[] = []
+    const leftPts: { x: number; y: number }[] = []
+    const rightPts: { x: number; y: number }[] = []
+
+    const minDepthY = Math.max(3, Math.round(h * 0.015))
+    const maxDepthY = Math.round(h * 0.38)
+    const minDepthX = Math.max(3, Math.round(w * 0.015))
+    const maxDepthX = Math.round(w * 0.38)
+
+    // Top rays: search from top edge downward
     for (let i = 1; i <= numRays; i++) {
-      const x = Math.round((i / (numRays + 1)) * (w - 2 * rim) + rim)
-
-      let bestTopY = -1
-      let maxTopScore = 18
+      const x = Math.round((i / (numRays + 1)) * (w - 2 * rimX) + rimX)
+      let peakScore = 0
+      let peakY = -1
       for (let y = minDepthY; y < maxDepthY; y++) {
-        const cur = luma[y * w + x]
-        const next = luma[(y + 1) * w + x]
-        const prev = luma[(y - 1) * w + x]
-        const grad = Math.abs(next - prev)
-        const contrast = Math.abs(cur - bgLuma)
-        const score = grad * 0.7 + contrast * 0.3
-        if (score > maxTopScore) {
-          maxTopScore = score
-          bestTopY = y
+        const g = grad[y * w + x]
+        const d = getBgDist(x, y)
+        const score = g * 0.65 + d * 0.35
+        if (score > peakScore) {
+          peakScore = score
+          peakY = y
+        } else if (peakScore > 28 && score < peakScore * 0.65) {
+          // Outermost edge peak passed; stop before penetrating into interior artwork details
+          break
         }
       }
-      if (bestTopY > 0) {
-        topCandidates.push({ x, y: bestTopY, strength: maxTopScore })
-      }
+      if (peakY > 0 && peakScore > 22) topPts.push({ x, y: peakY })
 
-      let bestBotY = -1
-      let maxBotScore = 18
+      // Bottom rays: search from bottom edge upward
+      peakScore = 0
+      peakY = -1
       for (let y = h - 1 - minDepthY; y > h - 1 - maxDepthY; y--) {
-        const cur = luma[y * w + x]
-        const next = luma[(y + 1) * w + x]
-        const prev = luma[(y - 1) * w + x]
-        const grad = Math.abs(next - prev)
-        const contrast = Math.abs(cur - bgLuma)
-        const score = grad * 0.7 + contrast * 0.3
-        if (score > maxBotScore) {
-          maxBotScore = score
-          bestBotY = y
+        const g = grad[y * w + x]
+        const d = getBgDist(x, y)
+        const score = g * 0.65 + d * 0.35
+        if (score > peakScore) {
+          peakScore = score
+          peakY = y
+        } else if (peakScore > 28 && score < peakScore * 0.65) {
+          break
         }
       }
-      if (bestBotY > 0) {
-        bottomCandidates.push({ x, y: bestBotY, strength: maxBotScore })
-      }
+      if (peakY > 0 && peakScore > 22) botPts.push({ x, y: peakY })
     }
 
+    // Left & Right rays: search from side edges inward
     for (let i = 1; i <= numRays; i++) {
-      const y = Math.round((i / (numRays + 1)) * (h - 2 * rim) + rim)
-
-      let bestLeftX = -1
-      let maxLeftScore = 18
+      const y = Math.round((i / (numRays + 1)) * (h - 2 * rimY) + rimY)
+      let peakScore = 0
+      let peakX = -1
       for (let x = minDepthX; x < maxDepthX; x++) {
-        const cur = luma[y * w + x]
-        const next = luma[y * w + (x + 1)]
-        const prev = luma[y * w + (x - 1)]
-        const grad = Math.abs(next - prev)
-        const contrast = Math.abs(cur - bgLuma)
-        const score = grad * 0.7 + contrast * 0.3
-        if (score > maxLeftScore) {
-          maxLeftScore = score
-          bestLeftX = x
+        const g = grad[y * w + x]
+        const d = getBgDist(x, y)
+        const score = g * 0.65 + d * 0.35
+        if (score > peakScore) {
+          peakScore = score
+          peakX = x
+        } else if (peakScore > 28 && score < peakScore * 0.65) {
+          break
         }
       }
-      if (bestLeftX > 0) {
-        leftCandidates.push({ x: bestLeftX, y, strength: maxLeftScore })
-      }
+      if (peakX > 0 && peakScore > 22) leftPts.push({ x: peakX, y })
 
-      let bestRightX = -1
-      let maxRightScore = 18
+      peakScore = 0
+      peakX = -1
       for (let x = w - 1 - minDepthX; x > w - 1 - maxDepthX; x--) {
-        const cur = luma[y * w + x]
-        const next = luma[y * w + (x + 1)]
-        const prev = luma[y * w + (x - 1)]
-        const grad = Math.abs(next - prev)
-        const contrast = Math.abs(cur - bgLuma)
-        const score = grad * 0.7 + contrast * 0.3
-        if (score > maxRightScore) {
-          maxRightScore = score
-          bestRightX = x
+        const g = grad[y * w + x]
+        const d = getBgDist(x, y)
+        const score = g * 0.65 + d * 0.35
+        if (score > peakScore) {
+          peakScore = score
+          peakX = x
+        } else if (peakScore > 28 && score < peakScore * 0.65) {
+          break
         }
       }
-      if (bestRightX > 0) {
-        rightCandidates.push({ x: bestRightX, y, strength: maxRightScore })
-      }
+      if (peakX > 0 && peakScore > 22) rightPts.push({ x: peakX, y })
     }
 
-    const filterHPoints = (pts: { x: number; y: number; strength: number }[]) => {
-      if (pts.length < 4) return pts
-      const sortedY = pts.map(p => p.y).sort((a, b) => a - b)
-      const medianY = sortedY[Math.floor(sortedY.length / 2)]
-      const maxDev = Math.max(6, h * 0.12)
-      return pts.filter(p => Math.abs(p.y - medianY) <= maxDev)
-    }
+    // 4. RANSAC Line Fitting (Rejects noise, shadows, and outliers)
+    const ransacHLine = (pts: { x: number; y: number }[]) => {
+      if (pts.length < 4) return null
+      let bestInliers: { x: number; y: number }[] = []
+      const iterations = 80
+      const threshold = Math.max(3, h * 0.025)
 
-    const filterVPoints = (pts: { x: number; y: number; strength: number }[]) => {
-      if (pts.length < 4) return pts
-      const sortedX = pts.map(p => p.x).sort((a, b) => a - b)
-      const medianX = sortedX[Math.floor(sortedX.length / 2)]
-      const maxDev = Math.max(6, w * 0.12)
-      return pts.filter(p => Math.abs(p.x - medianX) <= maxDev)
-    }
+      for (let iter = 0; iter < iterations; iter++) {
+        const p1 = pts[Math.floor(Math.random() * pts.length)]
+        const p2 = pts[Math.floor(Math.random() * pts.length)]
+        if (p1 === p2 || Math.abs(p1.x - p2.x) < 20) continue
 
-    const topInliers = filterHPoints(topCandidates)
-    const botInliers = filterHPoints(bottomCandidates)
-    const leftInliers = filterVPoints(leftCandidates)
-    const rightInliers = filterVPoints(rightCandidates)
+        const slope = (p2.y - p1.y) / (p2.x - p1.x)
+        if (Math.abs(slope) > 0.45) continue
 
-    if (topInliers.length >= 4 && botInliers.length >= 4 && leftInliers.length >= 4 && rightInliers.length >= 4) {
-      const fitHLine = (pts: { x: number; y: number }[]) => {
-        let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0
-        const n = pts.length
-        for (const p of pts) {
-          sumX += p.x
-          sumY += p.y
-          sumXX += p.x * p.x
-          sumXY += p.x * p.y
+        const intercept = p1.y - slope * p1.x
+        const inliers = pts.filter(p => Math.abs(p.y - (slope * p.x + intercept)) <= threshold)
+        if (inliers.length > bestInliers.length) {
+          bestInliers = inliers
         }
-        const denom = n * sumXX - sumX * sumX
-        const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
-        const b = (sumY - a * sumX) / n
-        return { a, b }
       }
 
-      const fitVLine = (pts: { x: number; y: number }[]) => {
-        let sumX = 0, sumY = 0, sumYY = 0, sumXY = 0
-        const n = pts.length
-        for (const p of pts) {
-          sumX += p.x
-          sumY += p.y
-          sumYY += p.y * p.y
-          sumXY += p.x * p.y
+      if (bestInliers.length < Math.max(4, pts.length * 0.25)) return null
+
+      let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0
+      const n = bestInliers.length
+      for (const p of bestInliers) {
+        sumX += p.x; sumY += p.y
+        sumXX += p.x * p.x; sumXY += p.x * p.y
+      }
+      const denom = n * sumXX - sumX * sumX
+      const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
+      const b = (sumY - a * sumX) / n
+      return { a, b }
+    }
+
+    const ransacVLine = (pts: { x: number; y: number }[]) => {
+      if (pts.length < 4) return null
+      let bestInliers: { x: number; y: number }[] = []
+      const iterations = 80
+      const threshold = Math.max(3, w * 0.025)
+
+      for (let iter = 0; iter < iterations; iter++) {
+        const p1 = pts[Math.floor(Math.random() * pts.length)]
+        const p2 = pts[Math.floor(Math.random() * pts.length)]
+        if (p1 === p2 || Math.abs(p1.y - p2.y) < 20) continue
+
+        const slope = (p2.x - p1.x) / (p2.y - p1.y)
+        if (Math.abs(slope) > 0.45) continue
+
+        const intercept = p1.x - slope * p1.y
+        const inliers = pts.filter(p => Math.abs(p.x - (slope * p.y + intercept)) <= threshold)
+        if (inliers.length > bestInliers.length) {
+          bestInliers = inliers
         }
-        const denom = n * sumYY - sumY * sumY
-        const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
-        const b = (sumX - a * sumY) / n
-        return { a, b }
       }
 
-      const topL = fitHLine(topInliers)
-      const botL = fitHLine(botInliers)
-      const leftL = fitVLine(leftInliers)
-      const rightL = fitVLine(rightInliers)
+      if (bestInliers.length < Math.max(4, pts.length * 0.25)) return null
 
+      let sumX = 0, sumY = 0, sumYY = 0, sumXY = 0
+      const n = bestInliers.length
+      for (const p of bestInliers) {
+        sumX += p.x; sumY += p.y
+        sumYY += p.y * p.y; sumXY += p.x * p.y
+      }
+      const denom = n * sumYY - sumY * sumY
+      const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
+      const b = (sumX - a * sumY) / n
+      return { a, b }
+    }
+
+    const topL = ransacHLine(topPts)
+    const botL = ransacHLine(botPts)
+    const leftL = ransacVLine(leftPts)
+    const rightL = ransacVLine(rightPts)
+
+    if (topL && botL && leftL && rightL) {
       const intersect = (hLine: { a: number; b: number }, vLine: { a: number; b: number }) => {
         const denom = 1 - hLine.a * vLine.a
         if (Math.abs(denom) < 1e-4) return { x: 0, y: 0 }
@@ -463,6 +507,28 @@ function detectWithCanvasEdges(
       const bl = intersect(botL, leftL)
 
       const candidate: ScanPoint[] = [tl, tr, br, bl]
+      if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
+        return candidate
+      }
+    }
+
+    // 5. High-Accuracy Percentile Bounding Box Fallback
+    const allPts = [...topPts, ...botPts, ...leftPts, ...rightPts]
+    if (allPts.length >= 16) {
+      const xs = allPts.map(p => p.x).sort((a, b) => a - b)
+      const ys = allPts.map(p => p.y).sort((a, b) => a - b)
+
+      const minX = xs[Math.floor(xs.length * 0.08)]
+      const maxX = xs[Math.floor(xs.length * 0.92)]
+      const minY = ys[Math.floor(ys.length * 0.08)]
+      const maxY = ys[Math.floor(ys.length * 0.92)]
+
+      const candidate: ScanPoint[] = [
+        { x: Math.round(minX / scale), y: Math.round(minY / scale) },
+        { x: Math.round(maxX / scale), y: Math.round(minY / scale) },
+        { x: Math.round(maxX / scale), y: Math.round(maxY / scale) },
+        { x: Math.round(minX / scale), y: Math.round(maxY / scale) },
+      ]
       if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
         return candidate
       }

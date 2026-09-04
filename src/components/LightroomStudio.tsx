@@ -384,6 +384,14 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
 
                 <div className="flex items-center gap-1 shrink-0">
                   <button
+                    onClick={onResetCropPoints}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer shrink-0"
+                    title="Сбросить рамку, угол наклона и ориентацию"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-[#565051]" />
+                    <span>Сброс</span>
+                  </button>
+                  <button
                     onClick={onRotateCW}
                     className="w-7 h-7 bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
                     title="Повернуть 90°"

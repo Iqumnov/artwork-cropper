@@ -1665,5 +1665,825 @@ export const LIGHTROOM_PRESETS: Preset[] = [
         balance: 5,
       }
     }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: КИНО ---
+  // ==========================================
+  {
+    id: 'interstellar_70mm',
+    name: 'Интерстеллар (IMAX 70mm)',
+    category: 'Кино',
+    adjustments: {
+      temp: 8,
+      tint: -4,
+      exposure: -0.05,
+      contrast: 24,
+      highlights: -20,
+      shadows: -14,
+      whites: 12,
+      blacks: -18,
+      vibrance: -8,
+      saturation: -12,
+      clarity: 16,
+      texture: 14,
+      grain: 12,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 215, sat: 28 },
+        midtones: { hue: 40, sat: 12 },
+        highlights: { hue: 45, sat: 26 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'mad_max_fury',
+    name: 'Безумный Макс (Охра & Кобальт)',
+    category: 'Кино',
+    adjustments: {
+      temp: 24,
+      tint: -2,
+      exposure: 0.1,
+      contrast: 32,
+      highlights: -18,
+      shadows: -16,
+      whites: 20,
+      blacks: -22,
+      vibrance: 36,
+      saturation: 10,
+      clarity: 28,
+      texture: 24,
+      vignette: -20,
+      colorGrading: {
+        shadows: { hue: 210, sat: 42 },
+        midtones: { hue: 32, sat: 22 },
+        highlights: { hue: 35, sat: 46 },
+        balance: -5,
+      }
+    }
+  },
+  {
+    id: 'amelie_montmartre',
+    name: 'Амели (Монмартр 2001)',
+    category: 'Кино',
+    adjustments: {
+      temp: 20,
+      tint: -12,
+      exposure: 0.15,
+      contrast: 14,
+      highlights: -16,
+      shadows: 18,
+      whites: 10,
+      blacks: -10,
+      vibrance: 28,
+      saturation: 8,
+      clarity: 8,
+      texture: 10,
+      fade: 4,
+      colorGrading: {
+        shadows: { hue: 130, sat: 26 },
+        midtones: { hue: 45, sat: 18 },
+        highlights: { hue: 52, sat: 34 },
+        balance: 5,
+      }
+    }
+  },
+  {
+    id: 'joker_gotham',
+    name: 'Джокер (Готэм 80-х)',
+    category: 'Кино',
+    adjustments: {
+      temp: -4,
+      tint: -14,
+      exposure: -0.15,
+      contrast: 28,
+      highlights: -24,
+      shadows: -18,
+      whites: 6,
+      blacks: -24,
+      vibrance: 12,
+      saturation: -14,
+      clarity: 22,
+      texture: 20,
+      grain: 26,
+      vignette: -25,
+      colorGrading: {
+        shadows: { hue: 175, sat: 32 },
+        midtones: { hue: 36, sat: 16 },
+        highlights: { hue: 42, sat: 30 },
+        balance: -15,
+      }
+    }
+  },
+  {
+    id: 'kill_bill_cinema',
+    name: 'Убить Билла (Тарантино)',
+    category: 'Кино',
+    adjustments: {
+      temp: 10,
+      tint: 4,
+      exposure: 0.05,
+      contrast: 26,
+      highlights: -12,
+      shadows: -12,
+      whites: 16,
+      blacks: -14,
+      vibrance: 32,
+      saturation: 16,
+      clarity: 18,
+      texture: 16,
+      grain: 10,
+      colorGrading: {
+        shadows: { hue: 10, sat: 22 },
+        midtones: { hue: 45, sat: 14 },
+        highlights: { hue: 50, sat: 28 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'neon_demon_glam',
+    name: 'Неоновый демон (Эйсид Глэм)',
+    category: 'Кино',
+    adjustments: {
+      temp: -6,
+      tint: 28,
+      exposure: 0.1,
+      contrast: 34,
+      highlights: -10,
+      shadows: -22,
+      whites: 22,
+      blacks: -26,
+      vibrance: 40,
+      saturation: 18,
+      clarity: 24,
+      texture: 18,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 195, sat: 44 },
+        midtones: { hue: 310, sat: 24 },
+        highlights: { hue: 325, sat: 38 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'lalaland_twilight',
+    name: 'Ла-Ла Ленд (Сумерки в LA)',
+    category: 'Кино',
+    adjustments: {
+      temp: -12,
+      tint: 22,
+      exposure: 0.08,
+      contrast: 16,
+      highlights: -22,
+      shadows: 14,
+      whites: 12,
+      blacks: -12,
+      vibrance: 30,
+      saturation: 6,
+      clarity: -6,
+      texture: 8,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 260, sat: 34 },
+        midtones: { hue: 330, sat: 16 },
+        highlights: { hue: 42, sat: 30 },
+        balance: -5,
+      }
+    }
+  },
+  {
+    id: 'oldboy_noir',
+    name: 'Олдбой (Корейский нео-нуар)',
+    category: 'Кино',
+    adjustments: {
+      temp: -8,
+      tint: -16,
+      exposure: -0.2,
+      contrast: 30,
+      highlights: -26,
+      shadows: -20,
+      whites: 8,
+      blacks: -28,
+      vibrance: 8,
+      saturation: -22,
+      clarity: 26,
+      texture: 22,
+      grain: 24,
+      vignette: -28,
+      colorGrading: {
+        shadows: { hue: 155, sat: 28 },
+        midtones: { hue: 190, sat: 14 },
+        highlights: { hue: 55, sat: 22 },
+        balance: -18,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: АРХИВ ---
+  // ==========================================
+  {
+    id: 'chrysotype_1842',
+    name: 'Хризотипия (Печать золотом 1842)',
+    category: 'Архив',
+    adjustments: {
+      temp: 14,
+      tint: 18,
+      exposure: 0.12,
+      contrast: 8,
+      highlights: -24,
+      shadows: 18,
+      whites: 6,
+      blacks: -10,
+      vibrance: -18,
+      saturation: -42,
+      clarity: 6,
+      texture: 14,
+      grain: 16,
+      fade: 12,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 285, sat: 32 },
+        midtones: { hue: 310, sat: 18 },
+        highlights: { hue: 44, sat: 24 },
+        balance: 5,
+      }
+    }
+  },
+  {
+    id: 'vandyke_brown_1889',
+    name: 'Вандейк коричневый (1889)',
+    category: 'Архив',
+    adjustments: {
+      temp: 26,
+      tint: 8,
+      exposure: 0.05,
+      contrast: 16,
+      highlights: -28,
+      shadows: 12,
+      whites: 4,
+      blacks: -16,
+      vibrance: -12,
+      saturation: -46,
+      clarity: 10,
+      texture: 18,
+      grain: 22,
+      fade: 10,
+      vignette: -22,
+      colorGrading: {
+        shadows: { hue: 28, sat: 40 },
+        midtones: { hue: 34, sat: 24 },
+        highlights: { hue: 42, sat: 20 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'orotone_gold_1900',
+    name: 'Оротон (Золото на стекле 1900)',
+    category: 'Архив',
+    adjustments: {
+      temp: 34,
+      tint: 6,
+      exposure: 0.18,
+      contrast: 22,
+      highlights: -18,
+      shadows: 8,
+      whites: 16,
+      blacks: -14,
+      vibrance: 14,
+      saturation: -16,
+      clarity: 14,
+      texture: 16,
+      grain: 14,
+      fade: 8,
+      vignette: -28,
+      colorGrading: {
+        shadows: { hue: 35, sat: 48 },
+        midtones: { hue: 42, sat: 38 },
+        highlights: { hue: 48, sat: 54 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'cibachrome_1963',
+    name: 'Сибахром (Ilfochrome 1963)',
+    category: 'Архив',
+    adjustments: {
+      temp: 4,
+      tint: 2,
+      exposure: 0.08,
+      contrast: 32,
+      highlights: -14,
+      shadows: -16,
+      whites: 18,
+      blacks: -20,
+      vibrance: 34,
+      saturation: 16,
+      clarity: 26,
+      texture: 22,
+      grain: 6,
+      vignette: -12,
+      colorGrading: {
+        shadows: { hue: 215, sat: 24 },
+        midtones: { hue: 35, sat: 12 },
+        highlights: { hue: 50, sat: 18 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'calotype_talbot_1841',
+    name: 'Тальботипия (Калотипия 1841)',
+    category: 'Архив',
+    adjustments: {
+      temp: 18,
+      tint: 12,
+      exposure: -0.05,
+      contrast: 4,
+      highlights: -32,
+      shadows: 24,
+      whites: 2,
+      blacks: 6,
+      vibrance: -30,
+      saturation: -60,
+      clarity: -12,
+      texture: 24,
+      grain: 32,
+      fade: 18,
+      vignette: -26,
+      colorGrading: {
+        shadows: { hue: 22, sat: 34 },
+        midtones: { hue: 30, sat: 20 },
+        highlights: { hue: 38, sat: 18 },
+        balance: 8,
+      }
+    }
+  },
+  {
+    id: 'ambrotype_blackglass_1855',
+    name: 'Амбротип на чёрном стекле (1855)',
+    category: 'Архив',
+    adjustments: {
+      temp: 6,
+      tint: -2,
+      exposure: -0.1,
+      contrast: 28,
+      highlights: -20,
+      shadows: -24,
+      whites: 14,
+      blacks: -32,
+      vibrance: -45,
+      saturation: -80,
+      clarity: 18,
+      texture: 22,
+      grain: 28,
+      fade: 6,
+      vignette: -34,
+      colorGrading: {
+        shadows: { hue: 210, sat: 14 },
+        midtones: { hue: 35, sat: 8 },
+        highlights: { hue: 45, sat: 16 },
+        balance: -12,
+      }
+    }
+  },
+  {
+    id: 'vintage_postcard_1900',
+    name: 'Винтажная открытка (1900)',
+    category: 'Архив',
+    adjustments: {
+      temp: 22,
+      tint: 8,
+      exposure: 0.16,
+      contrast: -8,
+      highlights: -26,
+      shadows: 20,
+      whites: 6,
+      blacks: 10,
+      vibrance: 12,
+      saturation: -18,
+      clarity: -4,
+      texture: 12,
+      grain: 18,
+      fade: 14,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 34, sat: 28 },
+        midtones: { hue: 44, sat: 18 },
+        highlights: { hue: 48, sat: 24 },
+        balance: 6,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: ПЛЁНКА ---
+  // ==========================================
+  {
+    id: 'kodak_royal_gold_400',
+    name: 'Kodak Royal Gold 400',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 14,
+      tint: 4,
+      exposure: 0.08,
+      contrast: 18,
+      highlights: -18,
+      shadows: 8,
+      whites: 12,
+      blacks: -14,
+      vibrance: 22,
+      saturation: 8,
+      clarity: 12,
+      texture: 14,
+      grain: 18,
+      vignette: -12,
+      colorGrading: {
+        shadows: { hue: 25, sat: 24 },
+        midtones: { hue: 42, sat: 16 },
+        highlights: { hue: 46, sat: 26 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'fuji_natura_1600',
+    name: 'Fuji Natura 1600',
+    category: 'Плёнка',
+    adjustments: {
+      temp: -4,
+      tint: 10,
+      exposure: 0.22,
+      contrast: -6,
+      highlights: -24,
+      shadows: 24,
+      whites: 10,
+      blacks: 6,
+      vibrance: 18,
+      saturation: -8,
+      clarity: -6,
+      texture: 8,
+      grain: 32,
+      fade: 10,
+      colorGrading: {
+        shadows: { hue: 250, sat: 18 },
+        midtones: { hue: 140, sat: 12 },
+        highlights: { hue: 40, sat: 14 },
+        balance: 4,
+      }
+    }
+  },
+  {
+    id: 'kodak_pro_image_100',
+    name: 'Kodak Pro Image 100',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 12,
+      tint: 2,
+      exposure: 0.04,
+      contrast: 14,
+      highlights: -16,
+      shadows: 10,
+      whites: 8,
+      blacks: -12,
+      vibrance: 16,
+      saturation: 4,
+      clarity: 10,
+      texture: 12,
+      grain: 12,
+      colorGrading: {
+        shadows: { hue: 32, sat: 18 },
+        midtones: { hue: 40, sat: 10 },
+        highlights: { hue: 48, sat: 18 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'cinestill_400d',
+    name: 'CineStill 400D Daylight',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 6,
+      tint: 4,
+      exposure: 0.1,
+      contrast: 20,
+      highlights: -14,
+      shadows: -8,
+      whites: 16,
+      blacks: -14,
+      vibrance: 24,
+      saturation: 8,
+      clarity: 16,
+      texture: 14,
+      grain: 18,
+      vignette: -14,
+      colorGrading: {
+        shadows: { hue: 195, sat: 22 },
+        midtones: { hue: 35, sat: 14 },
+        highlights: { hue: 22, sat: 28 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'kodak_ultramax_400',
+    name: 'Kodak UltraMax 400',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 10,
+      tint: -2,
+      exposure: 0.05,
+      contrast: 22,
+      highlights: -12,
+      shadows: -10,
+      whites: 14,
+      blacks: -16,
+      vibrance: 28,
+      saturation: 14,
+      clarity: 16,
+      texture: 16,
+      grain: 20,
+      colorGrading: {
+        shadows: { hue: 215, sat: 26 },
+        midtones: { hue: 44, sat: 16 },
+        highlights: { hue: 52, sat: 24 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'ferrania_solaris_200',
+    name: 'Ferrania Solaris 200',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 18,
+      tint: 6,
+      exposure: 0.12,
+      contrast: 16,
+      highlights: -20,
+      shadows: 14,
+      whites: 8,
+      blacks: -10,
+      vibrance: 20,
+      saturation: 6,
+      clarity: 12,
+      texture: 14,
+      grain: 16,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 30, sat: 26 },
+        midtones: { hue: 38, sat: 14 },
+        highlights: { hue: 44, sat: 24 },
+        balance: 2,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: СЛАЙД ---
+  // ==========================================
+  {
+    id: 'agfachrome_50s',
+    name: 'Agfachrome 50S (Теплый немецкий слайд)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 14,
+      tint: 2,
+      exposure: 0.05,
+      contrast: 24,
+      highlights: -18,
+      shadows: -12,
+      whites: 14,
+      blacks: -16,
+      vibrance: 22,
+      saturation: 6,
+      clarity: 18,
+      texture: 16,
+      grain: 10,
+      vignette: -14,
+      colorGrading: {
+        shadows: { hue: 135, sat: 18 },
+        midtones: { hue: 42, sat: 16 },
+        highlights: { hue: 48, sat: 24 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'kodachrome_25',
+    name: 'Kodachrome 25 (Легендарная резкость)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 8,
+      tint: -2,
+      exposure: -0.05,
+      contrast: 30,
+      highlights: -22,
+      shadows: -18,
+      whites: 16,
+      blacks: -22,
+      vibrance: 28,
+      saturation: 12,
+      clarity: 28,
+      texture: 24,
+      grain: 4,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 220, sat: 22 },
+        midtones: { hue: 38, sat: 14 },
+        highlights: { hue: 46, sat: 28 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'fuji_astia_100f',
+    name: 'Fuji Astia 100F (Мягкий портрет)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 2,
+      tint: 4,
+      exposure: 0.1,
+      contrast: 12,
+      highlights: -20,
+      shadows: 14,
+      whites: 10,
+      blacks: -8,
+      vibrance: 16,
+      saturation: -2,
+      clarity: 8,
+      texture: 10,
+      grain: 6,
+      colorGrading: {
+        shadows: { hue: 200, sat: 12 },
+        midtones: { hue: 35, sat: 8 },
+        highlights: { hue: 42, sat: 14 },
+        balance: 0,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: МОНОХРОМ ---
+  // ==========================================
+  {
+    id: 'agfa_apx_100',
+    name: 'Agfa APX 100 (Европейское серебро)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.05,
+      contrast: 26,
+      highlights: -18,
+      shadows: -14,
+      whites: 18,
+      blacks: -20,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 20,
+      texture: 18,
+      grain: 18,
+      vignette: -12,
+    }
+  },
+  {
+    id: 'kodak_tmax_100',
+    name: 'Kodak T-Max 100 (Табулярное зерно)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0,
+      contrast: 22,
+      highlights: -24,
+      shadows: -12,
+      whites: 14,
+      blacks: -18,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 24,
+      texture: 22,
+      grain: 8,
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ПРЕСЕТЫ: АРТ ---
+  // ==========================================
+  {
+    id: 'caravaggio_tenebrism',
+    name: 'Караваджо (Тенебризм)',
+    category: 'Арт',
+    adjustments: {
+      temp: 16,
+      tint: 4,
+      exposure: -0.25,
+      contrast: 38,
+      highlights: 14,
+      shadows: -42,
+      whites: 20,
+      blacks: -46,
+      vibrance: 12,
+      saturation: -8,
+      clarity: 26,
+      texture: 24,
+      grain: 12,
+      vignette: -36,
+      colorGrading: {
+        shadows: { hue: 25, sat: 28 },
+        midtones: { hue: 38, sat: 22 },
+        highlights: { hue: 45, sat: 36 },
+        balance: -20,
+      }
+    }
+  },
+  {
+    id: 'preraphaelite_palette',
+    name: 'Прерафаэлиты (Милле и Россетти)',
+    category: 'Арт',
+    adjustments: {
+      temp: 8,
+      tint: 14,
+      exposure: 0.1,
+      contrast: 18,
+      highlights: -18,
+      shadows: 12,
+      whites: 14,
+      blacks: -14,
+      vibrance: 32,
+      saturation: 12,
+      clarity: 16,
+      texture: 18,
+      fade: 4,
+      colorGrading: {
+        shadows: { hue: 145, sat: 26 },
+        midtones: { hue: 18, sat: 16 },
+        highlights: { hue: 42, sat: 26 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'degas_pastel',
+    name: 'Пастель Эдгара Дега',
+    category: 'Арт',
+    adjustments: {
+      temp: 10,
+      tint: 12,
+      exposure: 0.22,
+      contrast: -14,
+      highlights: -26,
+      shadows: 26,
+      whites: 8,
+      blacks: 12,
+      vibrance: 18,
+      saturation: -10,
+      clarity: -16,
+      texture: -6,
+      grain: 20,
+      fade: 14,
+      colorGrading: {
+        shadows: { hue: 275, sat: 18 },
+        midtones: { hue: 28, sat: 14 },
+        highlights: { hue: 38, sat: 20 },
+        balance: 8,
+      }
+    }
+  },
+  {
+    id: 'van_eyck_flemish',
+    name: 'Северный ренессанс (Ван Эйк)',
+    category: 'Арт',
+    adjustments: {
+      temp: 14,
+      tint: -4,
+      exposure: 0.05,
+      contrast: 24,
+      highlights: -16,
+      shadows: -14,
+      whites: 16,
+      blacks: -18,
+      vibrance: 24,
+      saturation: 6,
+      clarity: 28,
+      texture: 30,
+      grain: 8,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 210, sat: 24 },
+        midtones: { hue: 38, sat: 18 },
+        highlights: { hue: 46, sat: 30 },
+        balance: -5,
+      }
+    }
   }
+
 ]
+
