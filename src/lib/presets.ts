@@ -3309,6 +3309,1429 @@ export const LIGHTROOM_PRESETS: Preset[] = [
     }
   }
 
+,
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: КИНО (CINEMA MASTERPIECES) ---
+  // ==========================================
+  {
+    id: 'her_spike_jonze',
+    name: 'Она (Спайк Джонз 2013)',
+    category: 'Кино',
+    adjustments: {
+      temp: 18,
+      tint: 8,
+      exposure: 0.12,
+      contrast: -6,
+      highlights: -20,
+      shadows: 14,
+      whites: 10,
+      blacks: -8,
+      vibrance: 24,
+      saturation: 4,
+      clarity: -10,
+      texture: 8,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 20, sat: 22 },
+        midtones: { hue: 355, sat: 20 },
+        highlights: { hue: 32, sat: 28 },
+        balance: 4,
+      }
+    }
+  },
+  {
+    id: 'drive_refn',
+    name: 'Драйв (Рефн 2011)',
+    category: 'Кино',
+    adjustments: {
+      temp: -8,
+      tint: 16,
+      exposure: -0.1,
+      contrast: 34,
+      highlights: -12,
+      shadows: -22,
+      whites: 18,
+      blacks: -28,
+      vibrance: 36,
+      saturation: 14,
+      clarity: 24,
+      texture: 20,
+      grain: 16,
+      vignette: -22,
+      colorGrading: {
+        shadows: { hue: 215, sat: 42 },
+        midtones: { hue: 320, sat: 22 },
+        highlights: { hue: 35, sat: 38 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'the_shining_kubrick',
+    name: 'Сияние (Кубрик 1980)',
+    category: 'Кино',
+    adjustments: {
+      temp: -4,
+      tint: -6,
+      exposure: 0.08,
+      contrast: 22,
+      highlights: 10,
+      shadows: -14,
+      whites: 22,
+      blacks: -16,
+      vibrance: 28,
+      saturation: 12,
+      clarity: 20,
+      texture: 18,
+      grain: 14,
+      colorGrading: {
+        shadows: { hue: 165, sat: 18 },
+        midtones: { hue: 45, sat: 14 },
+        highlights: { hue: 8, sat: 32 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'in_the_mood_for_love_red',
+    name: 'Любовное настроение (Красный шёлк)',
+    category: 'Кино',
+    adjustments: {
+      temp: 16,
+      tint: 12,
+      exposure: -0.05,
+      contrast: 24,
+      highlights: -18,
+      shadows: -12,
+      whites: 12,
+      blacks: -18,
+      vibrance: 32,
+      saturation: 14,
+      clarity: 10,
+      texture: 14,
+      grain: 20,
+      fade: 4,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 135, sat: 24 },
+        midtones: { hue: 355, sat: 28 },
+        highlights: { hue: 42, sat: 34 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'fight_club_fincher',
+    name: 'Бойцовский клуб (Финчер)',
+    category: 'Кино',
+    adjustments: {
+      temp: -2,
+      tint: -18,
+      exposure: -0.15,
+      contrast: 32,
+      highlights: -24,
+      shadows: -18,
+      whites: 8,
+      blacks: -24,
+      vibrance: -8,
+      saturation: -20,
+      clarity: 28,
+      texture: 24,
+      grain: 24,
+      vignette: -26,
+      colorGrading: {
+        shadows: { hue: 110, sat: 28 },
+        midtones: { hue: 75, sat: 20 },
+        highlights: { hue: 50, sat: 18 },
+        balance: -14,
+      }
+    }
+  },
+  {
+    id: 'lost_in_translation',
+    name: 'Трудности перевода (Коппола)',
+    category: 'Кино',
+    adjustments: {
+      temp: -6,
+      tint: 14,
+      exposure: 0.1,
+      contrast: -8,
+      highlights: -24,
+      shadows: 16,
+      whites: 10,
+      blacks: -6,
+      vibrance: 18,
+      saturation: -6,
+      clarity: -14,
+      texture: 8,
+      fade: 10,
+      colorGrading: {
+        shadows: { hue: 250, sat: 24 },
+        midtones: { hue: 310, sat: 14 },
+        highlights: { hue: 42, sat: 22 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'apocalypse_now',
+    name: 'Апокалипсис сегодня (Стораро)',
+    category: 'Кино',
+    adjustments: {
+      temp: 24,
+      tint: 4,
+      exposure: 0.04,
+      contrast: 26,
+      highlights: -14,
+      shadows: -18,
+      whites: 16,
+      blacks: -20,
+      vibrance: 32,
+      saturation: 16,
+      clarity: 22,
+      texture: 20,
+      grain: 22,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 145, sat: 28 },
+        midtones: { hue: 35, sat: 24 },
+        highlights: { hue: 25, sat: 44 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'chungking_express',
+    name: 'Чунгкингский экспресс (1994)',
+    category: 'Кино',
+    adjustments: {
+      temp: -4,
+      tint: -12,
+      exposure: 0.05,
+      contrast: 28,
+      highlights: -16,
+      shadows: -14,
+      whites: 14,
+      blacks: -18,
+      vibrance: 36,
+      saturation: 18,
+      clarity: 20,
+      texture: 18,
+      grain: 26,
+      colorGrading: {
+        shadows: { hue: 165, sat: 34 },
+        midtones: { hue: 48, sat: 18 },
+        highlights: { hue: 15, sat: 36 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'the_godfather_part_ii',
+    name: 'Крёстный отец II (Гордон Уиллис)',
+    category: 'Кино',
+    adjustments: {
+      temp: 22,
+      tint: 2,
+      exposure: -0.22,
+      contrast: 26,
+      highlights: -24,
+      shadows: -26,
+      whites: 6,
+      blacks: -28,
+      vibrance: 12,
+      saturation: -8,
+      clarity: 16,
+      texture: 18,
+      grain: 20,
+      vignette: -32,
+      colorGrading: {
+        shadows: { hue: 32, sat: 34 },
+        midtones: { hue: 40, sat: 20 },
+        highlights: { hue: 46, sat: 30 },
+        balance: -16,
+      }
+    }
+  },
+  {
+    id: 'alien_1979',
+    name: 'Чужой (Ридли Скотт 1979)',
+    category: 'Кино',
+    adjustments: {
+      temp: -12,
+      tint: -4,
+      exposure: -0.18,
+      contrast: 32,
+      highlights: -22,
+      shadows: -26,
+      whites: 12,
+      blacks: -30,
+      vibrance: -12,
+      saturation: -24,
+      clarity: 26,
+      texture: 24,
+      grain: 22,
+      vignette: -28,
+      colorGrading: {
+        shadows: { hue: 200, sat: 32 },
+        midtones: { hue: 215, sat: 14 },
+        highlights: { hue: 50, sat: 14 },
+        balance: -14,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: АРХИВ (HISTORICAL PROCESSES) ---
+  // ==========================================
+  {
+    id: 'physautotype_1832',
+    name: 'Физавтотипия (Ньепс и Дагер 1832)',
+    category: 'Архив',
+    adjustments: {
+      temp: -6,
+      tint: 14,
+      exposure: -0.1,
+      contrast: 18,
+      highlights: -30,
+      shadows: -16,
+      whites: 6,
+      blacks: -20,
+      vibrance: -65,
+      saturation: -88,
+      clarity: 16,
+      texture: 24,
+      grain: 30,
+      fade: 10,
+      vignette: -30,
+      colorGrading: {
+        shadows: { hue: 240, sat: 16 },
+        midtones: { hue: 280, sat: 12 },
+        highlights: { hue: 55, sat: 12 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'carbon_print_1860',
+    name: 'Углеродная печать (Carbon Print 1860)',
+    category: 'Архив',
+    adjustments: {
+      temp: 10,
+      tint: 4,
+      exposure: 0.04,
+      contrast: 24,
+      highlights: -24,
+      shadows: -8,
+      whites: 12,
+      blacks: -24,
+      vibrance: -50,
+      saturation: -70,
+      clarity: 18,
+      texture: 18,
+      grain: 8,
+      fade: 4,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 28, sat: 28 },
+        midtones: { hue: 35, sat: 16 },
+        highlights: { hue: 44, sat: 18 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'collotype_1868',
+    name: 'Фототипия (Collotype 1868)',
+    category: 'Архив',
+    adjustments: {
+      temp: 14,
+      tint: 2,
+      exposure: 0.02,
+      contrast: 16,
+      highlights: -26,
+      shadows: 6,
+      whites: 8,
+      blacks: -16,
+      vibrance: -60,
+      saturation: -80,
+      clarity: 14,
+      texture: 28,
+      grain: 26,
+      fade: 8,
+      vignette: -20,
+      colorGrading: {
+        shadows: { hue: 30, sat: 24 },
+        midtones: { hue: 36, sat: 14 },
+        highlights: { hue: 42, sat: 16 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'autochrome_lumier_pastel',
+    name: 'Автохром (Картофельный крахмал)',
+    category: 'Архив',
+    adjustments: {
+      temp: 12,
+      tint: -4,
+      exposure: 0.1,
+      contrast: -6,
+      highlights: -20,
+      shadows: 18,
+      whites: 10,
+      blacks: -4,
+      vibrance: 22,
+      saturation: -8,
+      clarity: -8,
+      texture: 14,
+      grain: 36,
+      fade: 12,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 140, sat: 20 },
+        midtones: { hue: 44, sat: 18 },
+        highlights: { hue: 340, sat: 16 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'salt_paper_fox_talbot',
+    name: 'Солевая бумага (Фокс Тальбот 1839)',
+    category: 'Архив',
+    adjustments: {
+      temp: 20,
+      tint: 14,
+      exposure: -0.06,
+      contrast: 8,
+      highlights: -34,
+      shadows: 20,
+      whites: 4,
+      blacks: 2,
+      vibrance: -40,
+      saturation: -68,
+      clarity: -12,
+      texture: 26,
+      grain: 30,
+      fade: 16,
+      vignette: -28,
+      colorGrading: {
+        shadows: { hue: 20, sat: 36 },
+        midtones: { hue: 30, sat: 22 },
+        highlights: { hue: 40, sat: 20 },
+        balance: 6,
+      }
+    }
+  },
+  {
+    id: 'albumen_print_1855',
+    name: 'Альбуминовая печать (Яичный белок)',
+    category: 'Архив',
+    adjustments: {
+      temp: 24,
+      tint: 6,
+      exposure: 0.08,
+      contrast: 18,
+      highlights: -24,
+      shadows: 10,
+      whites: 10,
+      blacks: -12,
+      vibrance: -18,
+      saturation: -45,
+      clarity: 12,
+      texture: 18,
+      grain: 18,
+      fade: 8,
+      vignette: -22,
+      colorGrading: {
+        shadows: { hue: 28, sat: 38 },
+        midtones: { hue: 36, sat: 24 },
+        highlights: { hue: 44, sat: 24 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'polaroid_669_peel_apart',
+    name: 'Polaroid 669 (Peel-Apart)',
+    category: 'Архив',
+    adjustments: {
+      temp: 6,
+      tint: -14,
+      exposure: 0.14,
+      contrast: 12,
+      highlights: -18,
+      shadows: 16,
+      whites: 12,
+      blacks: -8,
+      vibrance: 24,
+      saturation: 4,
+      clarity: 6,
+      texture: 12,
+      grain: 20,
+      fade: 10,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 170, sat: 26 },
+        midtones: { hue: 42, sat: 16 },
+        highlights: { hue: 48, sat: 24 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'kodak_panatomic_x',
+    name: 'Kodak Panatomic-X (Микроплёнка)',
+    category: 'Архив',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.02,
+      contrast: 26,
+      highlights: -18,
+      shadows: -14,
+      whites: 16,
+      blacks: -20,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 28,
+      texture: 26,
+      grain: 4,
+    }
+  },
+  {
+    id: 'early_color_prokudin_gorsky',
+    name: 'Метод Прокудина-Горского (1909)',
+    category: 'Архив',
+    adjustments: {
+      temp: 8,
+      tint: -4,
+      exposure: 0.06,
+      contrast: 22,
+      highlights: -14,
+      shadows: -10,
+      whites: 14,
+      blacks: -14,
+      vibrance: 32,
+      saturation: 16,
+      clarity: 22,
+      texture: 18,
+      grain: 16,
+      colorGrading: {
+        shadows: { hue: 210, sat: 20 },
+        midtones: { hue: 40, sat: 14 },
+        highlights: { hue: 45, sat: 24 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'daguerreotype_gilded',
+    name: 'Дагеротип с золочением (1840)',
+    category: 'Архив',
+    adjustments: {
+      temp: 10,
+      tint: 2,
+      exposure: 0.05,
+      contrast: 30,
+      highlights: 12,
+      shadows: -28,
+      whites: 20,
+      blacks: -32,
+      vibrance: -70,
+      saturation: -88,
+      clarity: 26,
+      texture: 22,
+      grain: 12,
+      vignette: -34,
+      colorGrading: {
+        shadows: { hue: 35, sat: 26 },
+        midtones: { hue: 42, sat: 18 },
+        highlights: { hue: 48, sat: 28 },
+        balance: -12,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: ПЛЁНКА (LEGENDARY FILMS) ---
+  // ==========================================
+  {
+    id: 'kodak_ektachrome_160t',
+    name: 'Kodak Ektachrome 160T (Tungsten)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: -16,
+      tint: -6,
+      exposure: 0.08,
+      contrast: 26,
+      highlights: -16,
+      shadows: -14,
+      whites: 16,
+      blacks: -18,
+      vibrance: 30,
+      saturation: 10,
+      clarity: 20,
+      texture: 18,
+      grain: 14,
+      colorGrading: {
+        shadows: { hue: 225, sat: 34 },
+        midtones: { hue: 200, sat: 14 },
+        highlights: { hue: 40, sat: 26 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'fujifilm_superia_1600',
+    name: 'Fujifilm Superia 1600 (Ночная)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: -6,
+      tint: -10,
+      exposure: 0.16,
+      contrast: 22,
+      highlights: -20,
+      shadows: 18,
+      whites: 14,
+      blacks: -10,
+      vibrance: 28,
+      saturation: 8,
+      clarity: 16,
+      texture: 14,
+      grain: 32,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 155, sat: 28 },
+        midtones: { hue: 45, sat: 16 },
+        highlights: { hue: 345, sat: 22 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'kodak_gold_100_vintage',
+    name: 'Kodak Gold 100 (Винтаж 90-х)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 18,
+      tint: -2,
+      exposure: 0.08,
+      contrast: 20,
+      highlights: -16,
+      shadows: 6,
+      whites: 14,
+      blacks: -12,
+      vibrance: 26,
+      saturation: 12,
+      clarity: 14,
+      texture: 14,
+      grain: 14,
+      colorGrading: {
+        shadows: { hue: 28, sat: 26 },
+        midtones: { hue: 42, sat: 18 },
+        highlights: { hue: 48, sat: 32 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'ilford_pan_400',
+    name: 'Ilford Pan 400',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.04,
+      contrast: 22,
+      highlights: -18,
+      shadows: -12,
+      whites: 14,
+      blacks: -16,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 18,
+      texture: 16,
+      grain: 20,
+    }
+  },
+  {
+    id: 'agfacolor_neu_1936',
+    name: 'Agfacolor Neu (1936)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 16,
+      tint: -8,
+      exposure: 0.12,
+      contrast: 10,
+      highlights: -22,
+      shadows: 14,
+      whites: 8,
+      blacks: -8,
+      vibrance: 16,
+      saturation: -12,
+      clarity: 8,
+      texture: 14,
+      grain: 22,
+      fade: 8,
+      colorGrading: {
+        shadows: { hue: 130, sat: 22 },
+        midtones: { hue: 42, sat: 16 },
+        highlights: { hue: 25, sat: 24 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'kodak_verichrome_pan',
+    name: 'Kodak Verichrome Pan',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.12,
+      contrast: 14,
+      highlights: -24,
+      shadows: 16,
+      whites: 12,
+      blacks: -10,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 12,
+      texture: 14,
+      grain: 14,
+      fade: 6,
+    }
+  },
+  {
+    id: 'fujifilm_industrial_100',
+    name: 'Fujifilm Industrial 100 (Япония)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 2,
+      tint: 4,
+      exposure: 0.05,
+      contrast: 18,
+      highlights: -16,
+      shadows: 8,
+      whites: 14,
+      blacks: -12,
+      vibrance: 22,
+      saturation: 4,
+      clarity: 16,
+      texture: 14,
+      grain: 10,
+      colorGrading: {
+        shadows: { hue: 190, sat: 16 },
+        midtones: { hue: 35, sat: 10 },
+        highlights: { hue: 44, sat: 18 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'adox_silvermax_21',
+    name: 'Adox Silvermax 21 (Серебро 14 зон)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.06,
+      contrast: 24,
+      highlights: -28,
+      shadows: 18,
+      whites: 18,
+      blacks: -24,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 24,
+      texture: 22,
+      grain: 8,
+    }
+  },
+  {
+    id: 'rollei_retro_80s',
+    name: 'Rollei Retro 80S (Near-IR)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: -0.05,
+      contrast: 38,
+      highlights: 14,
+      shadows: -34,
+      whites: 24,
+      blacks: -38,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 32,
+      texture: 26,
+      grain: 6,
+      vignette: -18,
+    }
+  },
+  {
+    id: 'cinestill_800t_daylight_filter',
+    name: 'CineStill 800T (Фильтр 85B)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 14,
+      tint: 4,
+      exposure: 0.08,
+      contrast: 22,
+      highlights: -12,
+      shadows: -10,
+      whites: 18,
+      blacks: -16,
+      vibrance: 28,
+      saturation: 10,
+      clarity: 18,
+      texture: 16,
+      grain: 16,
+      vignette: -14,
+      colorGrading: {
+        shadows: { hue: 195, sat: 24 },
+        midtones: { hue: 38, sat: 14 },
+        highlights: { hue: 18, sat: 30 },
+        balance: -2,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: СЛАЙД (REVERSAL SLIDES) ---
+  // ==========================================
+  {
+    id: 'fujichrome_velvia_100f',
+    name: 'Fujichrome Velvia 100F (Насыщенный)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 6,
+      tint: 4,
+      exposure: 0.02,
+      contrast: 34,
+      highlights: -18,
+      shadows: -20,
+      whites: 20,
+      blacks: -24,
+      vibrance: 40,
+      saturation: 26,
+      clarity: 28,
+      texture: 24,
+      grain: 6,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 215, sat: 34 },
+        midtones: { hue: 36, sat: 20 },
+        highlights: { hue: 44, sat: 38 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'kodak_ektachrome_e200',
+    name: 'Kodak Ektachrome E200 (Тёплый слайд)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 12,
+      tint: 2,
+      exposure: 0.06,
+      contrast: 24,
+      highlights: -18,
+      shadows: -12,
+      whites: 16,
+      blacks: -16,
+      vibrance: 26,
+      saturation: 12,
+      clarity: 20,
+      texture: 16,
+      grain: 12,
+      colorGrading: {
+        shadows: { hue: 205, sat: 20 },
+        midtones: { hue: 40, sat: 16 },
+        highlights: { hue: 46, sat: 28 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'agfachrome_ct_precisa',
+    name: 'Agfa CT Precisa 100',
+    category: 'Слайд',
+    adjustments: {
+      temp: -4,
+      tint: -6,
+      exposure: 0.04,
+      contrast: 26,
+      highlights: -14,
+      shadows: -14,
+      whites: 16,
+      blacks: -18,
+      vibrance: 32,
+      saturation: 16,
+      clarity: 22,
+      texture: 18,
+      grain: 8,
+      colorGrading: {
+        shadows: { hue: 210, sat: 28 },
+        midtones: { hue: 185, sat: 14 },
+        highlights: { hue: 42, sat: 22 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'fujichrome_fortia_50',
+    name: 'Fujichrome Fortia 50 (Сверхнасыщенный)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 8,
+      tint: 8,
+      exposure: -0.02,
+      contrast: 38,
+      highlights: -16,
+      shadows: -24,
+      whites: 24,
+      blacks: -28,
+      vibrance: 48,
+      saturation: 34,
+      clarity: 30,
+      texture: 26,
+      grain: 6,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 220, sat: 40 },
+        midtones: { hue: 340, sat: 24 },
+        highlights: { hue: 40, sat: 44 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'kodachrome_200',
+    name: 'Kodachrome 200 (National Geographic)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 14,
+      tint: -2,
+      exposure: 0.04,
+      contrast: 28,
+      highlights: -20,
+      shadows: -16,
+      whites: 16,
+      blacks: -20,
+      vibrance: 26,
+      saturation: 10,
+      clarity: 24,
+      texture: 22,
+      grain: 14,
+      vignette: -16,
+      colorGrading: {
+        shadows: { hue: 215, sat: 24 },
+        midtones: { hue: 42, sat: 16 },
+        highlights: { hue: 46, sat: 30 },
+        balance: -6,
+      }
+    }
+  },
+  {
+    id: 'fujichrome_t64_tungsten',
+    name: 'Fujichrome T64 (Студийный слайд)',
+    category: 'Слайд',
+    adjustments: {
+      temp: -18,
+      tint: -4,
+      exposure: 0.06,
+      contrast: 24,
+      highlights: -18,
+      shadows: -14,
+      whites: 14,
+      blacks: -16,
+      vibrance: 24,
+      saturation: 8,
+      clarity: 18,
+      texture: 16,
+      grain: 8,
+      colorGrading: {
+        shadows: { hue: 220, sat: 32 },
+        midtones: { hue: 195, sat: 16 },
+        highlights: { hue: 38, sat: 22 },
+        balance: -8,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: МОНОХРОМ (DARKROOM TONALITIES) ---
+  // ==========================================
+  {
+    id: 'platinum_palladium_mix',
+    name: 'Платиново-палладиевый микс 50/50',
+    category: 'Монохром',
+    adjustments: {
+      temp: 8,
+      tint: 4,
+      exposure: 0.06,
+      contrast: 14,
+      highlights: -30,
+      shadows: 18,
+      whites: 8,
+      blacks: -16,
+      vibrance: -85,
+      saturation: -85,
+      clarity: 14,
+      texture: 18,
+      grain: 12,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 34, sat: 20 },
+        midtones: { hue: 40, sat: 12 },
+        highlights: { hue: 46, sat: 14 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'lith_print_process',
+    name: 'Лит-печать (Инфекционное проявление)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 16,
+      tint: 8,
+      exposure: 0.1,
+      contrast: 34,
+      highlights: -24,
+      shadows: -26,
+      whites: 18,
+      blacks: -36,
+      vibrance: -70,
+      saturation: -75,
+      clarity: 26,
+      texture: 30,
+      grain: 28,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 24, sat: 30 },
+        midtones: { hue: 32, sat: 22 },
+        highlights: { hue: 42, sat: 26 },
+        balance: -12,
+      }
+    }
+  },
+  {
+    id: 'cyanotype_over_platinum',
+    name: 'Цианотипия поверх платины',
+    category: 'Монохром',
+    adjustments: {
+      temp: -16,
+      tint: -6,
+      exposure: 0.04,
+      contrast: 20,
+      highlights: -22,
+      shadows: -14,
+      whites: 12,
+      blacks: -18,
+      vibrance: -45,
+      saturation: -60,
+      clarity: 16,
+      texture: 20,
+      grain: 16,
+      colorGrading: {
+        shadows: { hue: 215, sat: 44 },
+        midtones: { hue: 205, sat: 22 },
+        highlights: { hue: 50, sat: 8 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'ansel_adams_zone_system',
+    name: 'Зонная система (Ансель Адамс)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.04,
+      contrast: 30,
+      highlights: -32,
+      shadows: 24,
+      whites: 26,
+      blacks: -30,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 28,
+      texture: 24,
+      grain: 10,
+    }
+  },
+  {
+    id: 'moriyama_stray_dog',
+    name: 'Дайдо Морияма (Бродячий пёс 1971)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: -0.15,
+      contrast: 48,
+      highlights: 22,
+      shadows: -48,
+      whites: 30,
+      blacks: -52,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 42,
+      texture: 38,
+      grain: 44,
+      vignette: -32,
+    }
+  },
+  {
+    id: 'wet_plate_collodion_tint',
+    name: 'Мокрый коллодий (Серебряный вираж)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 4,
+      tint: -2,
+      exposure: -0.08,
+      contrast: 26,
+      highlights: -24,
+      shadows: -22,
+      whites: 16,
+      blacks: -28,
+      vibrance: -85,
+      saturation: -90,
+      clarity: 20,
+      texture: 26,
+      grain: 26,
+      vignette: -36,
+      colorGrading: {
+        shadows: { hue: 210, sat: 16 },
+        midtones: { hue: 45, sat: 10 },
+        highlights: { hue: 50, sat: 14 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'kallitype_sepia',
+    name: 'Каллитипия (Сепия-шоколад)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 22,
+      tint: 6,
+      exposure: 0.05,
+      contrast: 18,
+      highlights: -26,
+      shadows: 12,
+      whites: 8,
+      blacks: -14,
+      vibrance: -65,
+      saturation: -70,
+      clarity: 14,
+      texture: 18,
+      grain: 16,
+      fade: 8,
+      vignette: -20,
+      colorGrading: {
+        shadows: { hue: 26, sat: 36 },
+        midtones: { hue: 34, sat: 22 },
+        highlights: { hue: 42, sat: 18 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'split_sepia_selenium',
+    name: 'Сплит-вираж (Сепия + Селен)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 10,
+      tint: 12,
+      exposure: 0.06,
+      contrast: 26,
+      highlights: -20,
+      shadows: -16,
+      whites: 14,
+      blacks: -20,
+      vibrance: -75,
+      saturation: -80,
+      clarity: 18,
+      texture: 18,
+      grain: 14,
+      colorGrading: {
+        shadows: { hue: 285, sat: 28 },
+        midtones: { hue: 32, sat: 18 },
+        highlights: { hue: 42, sat: 26 },
+        balance: -4,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- НОВАЯ ВОЛНА: АРТ (FINE ART MASTERS) ---
+  // ==========================================
+  {
+    id: 'turner_golden_light',
+    name: 'Уильям Тёрнер (Золотой свет и пар)',
+    category: 'Арт',
+    adjustments: {
+      temp: 32,
+      tint: 6,
+      exposure: 0.28,
+      contrast: -16,
+      highlights: 18,
+      shadows: 24,
+      whites: 26,
+      blacks: -6,
+      vibrance: 34,
+      saturation: 16,
+      clarity: -20,
+      texture: 8,
+      fade: 14,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 35, sat: 34 },
+        midtones: { hue: 44, sat: 36 },
+        highlights: { hue: 50, sat: 54 },
+        balance: 8,
+      }
+    }
+  },
+  {
+    id: 'kandinsky_composition',
+    name: 'Василий Кандинский (Авангард)',
+    category: 'Арт',
+    adjustments: {
+      temp: 4,
+      tint: 6,
+      exposure: 0.08,
+      contrast: 32,
+      highlights: -10,
+      shadows: -14,
+      whites: 22,
+      blacks: -18,
+      vibrance: 44,
+      saturation: 28,
+      clarity: 26,
+      texture: 22,
+      colorGrading: {
+        shadows: { hue: 225, sat: 36 },
+        midtones: { hue: 345, sat: 28 },
+        highlights: { hue: 48, sat: 46 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'edward_hopper_nighthawks',
+    name: 'Эдвард Хоппер (Полуночники)',
+    category: 'Арт',
+    adjustments: {
+      temp: -4,
+      tint: -16,
+      exposure: -0.12,
+      contrast: 28,
+      highlights: 12,
+      shadows: -26,
+      whites: 16,
+      blacks: -28,
+      vibrance: 22,
+      saturation: 4,
+      clarity: 22,
+      texture: 18,
+      vignette: -28,
+      colorGrading: {
+        shadows: { hue: 175, sat: 32 },
+        midtones: { hue: 38, sat: 20 },
+        highlights: { hue: 65, sat: 28 },
+        balance: -12,
+      }
+    }
+  },
+  {
+    id: 'hokusai_great_wave',
+    name: 'Хокусай (Большая волна в Канагаве)',
+    category: 'Арт',
+    adjustments: {
+      temp: -14,
+      tint: -2,
+      exposure: 0.06,
+      contrast: 26,
+      highlights: -18,
+      shadows: -16,
+      whites: 16,
+      blacks: -22,
+      vibrance: 32,
+      saturation: 12,
+      clarity: 24,
+      texture: 22,
+      colorGrading: {
+        shadows: { hue: 215, sat: 48 },
+        midtones: { hue: 200, sat: 22 },
+        highlights: { hue: 42, sat: 26 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'salvador_dali_surrealism',
+    name: 'Сальвадор Дали (Сюрреализм)',
+    category: 'Арт',
+    adjustments: {
+      temp: 14,
+      tint: -6,
+      exposure: 0.1,
+      contrast: 34,
+      highlights: -12,
+      shadows: -18,
+      whites: 20,
+      blacks: -22,
+      vibrance: 36,
+      saturation: 18,
+      clarity: 32,
+      texture: 28,
+      grain: 6,
+      colorGrading: {
+        shadows: { hue: 215, sat: 34 },
+        midtones: { hue: 38, sat: 26 },
+        highlights: { hue: 46, sat: 42 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'piet_mondrian_de_stijl',
+    name: 'Пит Мондриан (Де Стейл)',
+    category: 'Арт',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.05,
+      contrast: 40,
+      highlights: 10,
+      shadows: -24,
+      whites: 26,
+      blacks: -32,
+      vibrance: 46,
+      saturation: 30,
+      clarity: 34,
+      texture: 20,
+      colorGrading: {
+        shadows: { hue: 225, sat: 42 },
+        midtones: { hue: 355, sat: 38 },
+        highlights: { hue: 50, sat: 50 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'rembrandt_golden_glow',
+    name: 'Рембрандт (Золотое свечение)',
+    category: 'Арт',
+    adjustments: {
+      temp: 24,
+      tint: 2,
+      exposure: -0.18,
+      contrast: 32,
+      highlights: 12,
+      shadows: -34,
+      whites: 16,
+      blacks: -38,
+      vibrance: 18,
+      saturation: -2,
+      clarity: 22,
+      texture: 26,
+      grain: 16,
+      vignette: -34,
+      colorGrading: {
+        shadows: { hue: 28, sat: 34 },
+        midtones: { hue: 38, sat: 28 },
+        highlights: { hue: 45, sat: 44 },
+        balance: -16,
+      }
+    }
+  },
+  {
+    id: 'cezanne_provence',
+    name: 'Поль Сезанн (Прованс)',
+    category: 'Арт',
+    adjustments: {
+      temp: 14,
+      tint: 4,
+      exposure: 0.1,
+      contrast: 18,
+      highlights: -18,
+      shadows: 10,
+      whites: 12,
+      blacks: -12,
+      vibrance: 26,
+      saturation: 8,
+      clarity: 16,
+      texture: 20,
+      fade: 4,
+      colorGrading: {
+        shadows: { hue: 220, sat: 24 },
+        midtones: { hue: 135, sat: 18 },
+        highlights: { hue: 44, sat: 28 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'malevich_suprematism',
+    name: 'Казимир Малевич (Супрематизм)',
+    category: 'Арт',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0,
+      contrast: 46,
+      highlights: 20,
+      shadows: -38,
+      whites: 30,
+      blacks: -48,
+      vibrance: 40,
+      saturation: 22,
+      clarity: 36,
+      texture: 24,
+      colorGrading: {
+        shadows: { hue: 0, sat: 0 },
+        midtones: { hue: 350, sat: 28 },
+        highlights: { hue: 48, sat: 36 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'bosch_garden_of_earthly_delights',
+    name: 'Иероним Босх (Сад земных наслаждений)',
+    category: 'Арт',
+    adjustments: {
+      temp: 8,
+      tint: 14,
+      exposure: 0.08,
+      contrast: 24,
+      highlights: -16,
+      shadows: -14,
+      whites: 16,
+      blacks: -18,
+      vibrance: 34,
+      saturation: 16,
+      clarity: 26,
+      texture: 28,
+      grain: 12,
+      colorGrading: {
+        shadows: { hue: 150, sat: 30 },
+        midtones: { hue: 345, sat: 20 },
+        highlights: { hue: 46, sat: 32 },
+        balance: 2,
+      }
+    }
+  }
+
 ]
+
 
 
