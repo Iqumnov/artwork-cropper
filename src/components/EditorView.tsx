@@ -18,7 +18,7 @@ import {
 } from '../types'
 import { getDefaultAdjustments } from '../lib/presets'
 import { applyLightroomAdjustments } from '../lib/color-engine'
-import { warpPerspectiveCanvas, loadOpenCV } from '../lib/perspective-warp'
+import { warpPerspectiveCanvas, detectDocumentCorners } from '../lib/perspective-warp'
 import { LightroomStudio } from './LightroomStudio'
 import { ExportModal } from './ExportModal'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
@@ -27,6 +27,8 @@ import {
   saveArtworkToHistory,
   deleteArtworkFromHistory,
   clearArtworkHistory,
+  saveEditorSession,
+  clearEditorSession,
   HistoryArtwork
 } from '../lib/history-storage'
 
@@ -34,6 +36,11 @@ interface EditorViewProps {
   initialImageUrl: string
   initialAdjustments?: LightroomAdjustments
   initialArtworkId?: string
+  initialTab?: EditorTab
+  initialCropMode?: 'scan' | 'fixed'
+  initialScanPoints?: ScanPoint[]
+  initialFixedCropArea?: CropArea
+  initialDrawerHeight?: number
   onBack: () => void
 }
 
@@ -41,30 +48,41 @@ export const EditorView: React.FC<EditorViewProps> = ({
   initialImageUrl,
   initialAdjustments,
   initialArtworkId,
+  initialTab,
+  initialCropMode,
+  initialScanPoints,
+  initialFixedCropArea,
+  initialDrawerHeight,
   onBack
 }) => {
   const [artworkId, setArtworkId] = useState(initialArtworkId || `art_${Date.now()}`)
   const [baseImage, setBaseImage] = useState<HTMLImageElement | HTMLCanvasElement | null>(null)
 
-  // Drawer & Tabs
-  const [activeTab, setActiveTab] = useState<EditorTab>('light')
-  const [drawerHeight, setDrawerHeight] = useState(270)
+  // Drawer & Tabs — defaults to 'crop' (Кадрирование) as requested
+  const [activeTab, setActiveTab] = useState<EditorTab>(initialTab || 'crop')
+  const [drawerHeight, setDrawerHeight] = useState(initialDrawerHeight || 270)
 
   // Cropping State
-  const [cropMode, setCropMode] = useState<'scan' | 'fixed'>('scan')
+  const [cropMode, setCropMode] = useState<'scan' | 'fixed'>(initialCropMode || 'scan')
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS[0])
-  const [scanPoints, setScanPoints] = useState<ScanPoint[]>([
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 }
-  ])
-  const [fixedCropArea, setFixedCropArea] = useState<CropArea>({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0
-  })
+  const [scanPoints, setScanPoints] = useState<ScanPoint[]>(
+    initialScanPoints && initialScanPoints.length === 4
+      ? initialScanPoints
+      : [
+          { x: 0, y: 0 },
+          { x: 0, y: 0 },
+          { x: 0, y: 0 },
+          { x: 0, y: 0 }
+        ]
+  )
+  const [fixedCropArea, setFixedCropArea] = useState<CropArea>(
+    initialFixedCropArea || {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0
+    }
+  )
 
   // Dragging crop handles state
   const [draggingTarget, setDraggingTarget] = useState<
@@ -184,13 +202,52 @@ export const EditorView: React.FC<EditorViewProps> = ({
   useEffect(() => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
-    img.onload = () => {
+    img.onload = async () => {
       setBaseImage(img)
-      initCropBounds(img.naturalWidth, img.naturalHeight)
       resetViewport(img.naturalWidth, img.naturalHeight)
+
+      if (initialScanPoints && initialScanPoints.length === 4 && initialScanPoints[1].x > 0) {
+        setScanPoints(initialScanPoints)
+      } else {
+        // Automatically trigger auto-detection on first load as requested
+        const detected = await detectDocumentCorners(img, img.naturalWidth, img.naturalHeight)
+        if (detected && detected.length === 4) {
+          setScanPoints(detected)
+        } else {
+          initCropBounds(img.naturalWidth, img.naturalHeight)
+        }
+      }
     }
     img.src = initialImageUrl
-  }, [initialImageUrl, initCropBounds, resetViewport])
+  }, [initialImageUrl, initCropBounds, resetViewport, initialScanPoints])
+
+  // Keep canvas centered when drawer height changes or window resizes
+  useEffect(() => {
+    if (!viewportRef.current || !baseImage) return
+    const ro = new ResizeObserver(() => {
+      const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+      const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+      resetViewport(w, h)
+    })
+    ro.observe(viewportRef.current)
+    return () => ro.disconnect()
+  }, [baseImage, resetViewport, drawerHeight])
+
+  // Automatically persist session across browser refresh
+  useEffect(() => {
+    if (!initialImageUrl) return
+    saveEditorSession({
+      imageUrl: initialImageUrl,
+      artworkId,
+      adjustments,
+      activeTab,
+      cropMode,
+      aspectRatioLabel: selectedAspectRatio.name,
+      scanPoints,
+      fixedCropArea,
+      drawerHeight
+    })
+  }, [initialImageUrl, artworkId, adjustments, activeTab, cropMode, selectedAspectRatio, scanPoints, fixedCropArea, drawerHeight])
 
   // Adjustments History
   const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
@@ -265,11 +322,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
     loadHistory()
   }
 
-  // Direct Download Button
+  // Direct Download Button (Strictly 100% JPEG quality as requested)
   const handleDirectDownload = () => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95)
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0)
     const a = document.createElement('a')
     a.href = dataUrl
     a.download = `artwork_${Date.now()}.jpg`
@@ -321,64 +378,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
 
-    try {
-      const isLoaded = await loadOpenCV()
-      if (isLoaded && (window as any).cv?.Mat) {
-        const cv = (window as any).cv
-        const srcMat = cv.imread(baseImage as any)
-        const gray = new cv.Mat()
-        cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY)
-        cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0)
-        const edges = new cv.Mat()
-        cv.Canny(gray, edges, 50, 150)
-        const contours = new cv.MatVector()
-        const hierarchy = new cv.Mat()
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
-
-        let maxArea = 0
-        let bestQuad: ScanPoint[] | null = null
-
-        for (let i = 0; i < contours.size(); i++) {
-          const cnt = contours.get(i)
-          const peri = cv.arcLength(cnt, true)
-          const approx = new cv.Mat()
-          cv.approxPolyDP(cnt, approx, 0.02 * peri, true)
-
-          if (approx.rows === 4) {
-            const area = cv.contourArea(approx)
-            if (area > maxArea && area > w * h * 0.15) {
-              maxArea = area
-              const pts: ScanPoint[] = []
-              for (let j = 0; j < 4; j++) {
-                pts.push({
-                  x: approx.data32S[j * 2],
-                  y: approx.data32S[j * 2 + 1]
-                })
-              }
-              bestQuad = pts
-            }
-          }
-          approx.delete()
-          cnt.delete()
-        }
-
-        srcMat.delete()
-        gray.delete()
-        edges.delete()
-        contours.delete()
-        hierarchy.delete()
-
-        if (bestQuad && bestQuad.length === 4) {
-          const sortedByY = [...bestQuad].sort((a, b) => a.y - b.y)
-          const top = [sortedByY[0], sortedByY[1]].sort((a, b) => a.x - b.x)
-          const bottom = [sortedByY[2], sortedByY[3]].sort((a, b) => a.x - b.x)
-          setScanPoints([top[0], top[1], bottom[1], bottom[0]])
-          return
-        }
-      }
-    } catch {}
-
-    initCropBounds(w, h)
+    const detected = await detectDocumentCorners(baseImage, w, h)
+    if (detected && detected.length === 4) {
+      setScanPoints(detected)
+    } else {
+      initCropBounds(w, h)
+    }
   }
 
   const handleResetCropPoints = () => {
@@ -628,8 +633,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
         {/* Left: Back & History */}
         <div className="flex items-center gap-1.5">
           <button
-            onClick={() => {
+            onClick={async () => {
               saveSnapshotToHistory()
+              await clearEditorSession()
               onBack()
             }}
             className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
@@ -793,8 +799,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
         )}
 
         {/* Transformed Image & Interactive Crop Coordinate Space */}
+        {/* Transformed Image & Interactive Crop Coordinate Space (Anchored strictly to top-left for 100% exact canvas centering) */}
         <div
-          className="absolute origin-top-left shadow-sm transition-transform duration-75 ease-out"
+          className="absolute top-0 left-0 origin-top-left shadow-sm transition-transform duration-75 ease-out"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             width: w,
@@ -826,54 +833,72 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     />
                   </svg>
 
-                  {/* 4 Corner Pins (100% aligned with polygon corners) */}
-                  {scanPoints.map((point, index) => (
-                    <div
-                      key={`corner-${index}`}
-                      className="absolute cursor-move -translate-x-1/2 -translate-y-1/2 z-30"
-                      style={{ left: `${point.x}px`, top: `${point.y}px` }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation()
-                        setDraggingTarget({ type: 'scan-point', index })
-                        setDragStartPos({ x: e.clientX, y: e.clientY })
-                        setScanPointsStart([...scanPoints])
-                      }}
-                      onTouchStart={(e) => {
-                        e.stopPropagation()
-                        if (e.touches.length === 1) {
-                          setDraggingTarget({ type: 'scan-point', index })
-                          setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-                          setScanPointsStart([...scanPoints])
-                        }
-                      }}
-                    >
-                      {/* Invisible Touch Hitbox */}
-                      <div className="absolute inset-0 w-16 h-16 -translate-x-1/2 -translate-y-1/2 pointer-events-auto" />
-                      {/* Clean 1px Square Pin (No red dot) */}
+                  {/* 4 Corner Pins (100% exact sub-pixel center aligned with polygon vertices) */}
+                  {scanPoints.map((point, index) => {
+                    const pinSize = Math.max(12, Math.round(14 / zoom))
+                    return (
                       <div
-                        className="border border-[#0f0b0c] bg-[#faf8f8] shadow-md flex items-center justify-center pointer-events-none"
+                        key={`corner-${index}`}
+                        className="absolute z-30 flex items-center justify-center cursor-move select-none"
                         style={{
-                          width: `${Math.max(10, 14 / zoom)}px`,
-                          height: `${Math.max(10, 14 / zoom)}px`,
+                          left: `${point.x}px`,
+                          top: `${point.y}px`,
+                          width: `${pinSize}px`,
+                          height: `${pinSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          setDraggingTarget({ type: 'scan-point', index })
+                          setDragStartPos({ x: e.clientX, y: e.clientY })
+                          setScanPointsStart([...scanPoints])
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          if (e.touches.length === 1) {
+                            setDraggingTarget({ type: 'scan-point', index })
+                            setDragStartPos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+                            setScanPointsStart([...scanPoints])
+                          }
+                        }}
                       >
-                        <div className="w-1.5 h-1.5 bg-[#0f0b0c]" />
+                        {/* Centered touch/click hitbox */}
+                        <div
+                          className="absolute pointer-events-auto"
+                          style={{
+                            width: '48px',
+                            height: '48px',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)'
+                          }}
+                        />
+                        {/* Clean 1px Square Pin */}
+                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none">
+                          <div className="w-1.5 h-1.5 bg-[#0f0b0c]" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
 
-                  {/* 4 Midpoint Handles */}
+                  {/* 4 Midpoint Handles (100% exact center aligned on polygon line segments) */}
                   {scanPoints.map((point, index) => {
                     const nextIdx = (index + 1) % 4
                     const nextPt = scanPoints[nextIdx]
                     const midX = (point.x + nextPt.x) / 2
                     const midY = (point.y + nextPt.y) / 2
+                    const midSize = Math.max(8, Math.round(10 / zoom))
                     return (
                       <div
                         key={`mid-${index}`}
-                        className="absolute cursor-move -translate-x-1/2 -translate-y-1/2 z-20"
-                        style={{ left: `${midX}px`, top: `${midY}px` }}
+                        className="absolute z-20 flex items-center justify-center cursor-move select-none"
+                        style={{
+                          left: `${midX}px`,
+                          top: `${midY}px`,
+                          width: `${midSize}px`,
+                          height: `${midSize}px`,
+                          transform: 'translate(-50%, -50%)'
+                        }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           setDraggingTarget({ type: 'scan-side', index })
@@ -889,15 +914,17 @@ export const EditorView: React.FC<EditorViewProps> = ({
                           }
                         }}
                       >
-                        <div className="absolute inset-0 w-14 h-14 -translate-x-1/2 -translate-y-1/2 pointer-events-auto" />
                         <div
-                          className="border border-[#0f0b0c] bg-[#faf8f8] pointer-events-none"
+                          className="absolute pointer-events-auto"
                           style={{
-                            width: `${Math.max(8, 12 / zoom)}px`,
-                            height: `${Math.max(8, 12 / zoom)}px`,
+                            width: '40px',
+                            height: '40px',
+                            left: '50%',
+                            top: '50%',
                             transform: 'translate(-50%, -50%)'
                           }}
                         />
+                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none" />
                       </div>
                     )
                   })}

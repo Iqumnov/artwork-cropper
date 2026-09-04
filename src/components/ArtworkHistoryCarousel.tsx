@@ -19,13 +19,19 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
 }) => {
   if (items.length === 0) return null
 
-  const handleDownload = (item: HistoryArtwork) => {
+  const handleDownload = (e: React.MouseEvent, item: HistoryArtwork) => {
+    e.stopPropagation()
     const a = document.createElement('a')
     a.href = item.dataUrl
     a.download = `artwork_${item.id.slice(-6)}.jpg`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
+  }
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    onDelete(id)
   }
 
   const formatTime = (ts: number) => {
@@ -48,8 +54,9 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onClearAll}
-          className="flex items-center gap-1 text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-2 py-0.5 border border-transparent hover:border-[#e3dbdc]"
+          className="flex items-center gap-1 text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-1.5 py-0.5 border border-transparent hover:border-[#e3dbdc]"
           title="Очистить всю историю"
         >
           <Trash2 className="w-3 h-3" />
@@ -58,60 +65,58 @@ export const ArtworkHistoryCarousel: React.FC<ArtworkHistoryCarouselProps> = ({
       </div>
 
       {/* Horizontal Carousel */}
-      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         {items.map((item) => {
           const aspectRatio = item.width && item.height ? item.width / item.height : 1
-          const calculatedWidth = Math.max(70, Math.min(180, Math.round(90 * aspectRatio)))
+          const calculatedWidth = Math.max(88, Math.min(160, Math.round(72 * aspectRatio)))
 
           return (
             <div
               key={item.id}
               onClick={() => onSelect(item)}
-              className="relative group overflow-hidden bg-white border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center shrink-0 cursor-pointer transition-colors duration-200"
+              className="flex flex-col bg-white border border-[#e3dbdc] hover:border-[#34292a] shrink-0 cursor-pointer transition-colors duration-200 group"
               style={{
-                height: '90px',
                 width: `${calculatedWidth}px`,
                 minWidth: `${calculatedWidth}px`
               }}
-              title="Нажмите для повторного редактирования"
+              title="Нажмите для редактирования"
             >
-              <img
-                src={item.dataUrl}
-                alt={item.title}
-                className="w-full h-full object-cover select-none pointer-events-none"
-                loading="lazy"
-              />
-
-              {/* Timestamp Badge (No 'Latest' tag) */}
-              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-[#faf8f8]/95 border border-[#e3dbdc] text-[9px] font-mono text-[#0f0b0c] pointer-events-none">
-                {formatTime(item.timestamp)}
+              {/* Clean Image View */}
+              <div className="relative w-full h-[68px] overflow-hidden bg-[#faf8f8] flex items-center justify-center">
+                <img
+                  src={item.dataUrl}
+                  alt={item.title}
+                  className="w-full h-full object-cover select-none pointer-events-none"
+                  loading="lazy"
+                />
               </div>
 
-              {/* Delete Button (Trash2 Icon) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(item.id)
-                }}
-                className="absolute top-1 right-1 text-[#565051] bg-[#faf8f8]/95 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#34292a] hover:text-[#faf8f8] p-1 transition-colors z-10"
-                title="Удалить из истории"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+              {/* Tags & Action Buttons UNDER the Image */}
+              <div className="flex items-center justify-between px-1.5 py-1 border-t border-[#e3dbdc] bg-[#faf8f8]">
+                <span className="text-[9px] font-mono text-[#565051] truncate max-w-[55%]">
+                  {formatTime(item.timestamp)}
+                </span>
 
-              {/* Download Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDownload(item)
-                }}
-                className="absolute bottom-1 right-1 text-[#565051] bg-[#faf8f8]/95 border border-[#e3dbdc] hover:border-[#34292a] hover:bg-[#0f0b0c] hover:text-[#faf8f8] p-1 transition-colors z-10"
-                title="Скачать изображение"
-              >
-                <Download className="w-3 h-3" />
-              </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => handleDownload(e, item)}
+                    className="text-[#565051] hover:text-[#0f0b0c] p-0.5 transition-colors cursor-pointer"
+                    title="Скачать файл"
+                  >
+                    <Download className="w-3 h-3" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e, item.id)}
+                    className="text-[#565051] hover:text-[#0f0b0c] p-0.5 transition-colors cursor-pointer"
+                    title="Удалить из истории"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
             </div>
           )
         })}

@@ -4,6 +4,7 @@ import { CameraCaptureModal } from './CameraCaptureModal'
 import { generateSampleArtwork } from '../lib/sample-images'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import { getArtworkHistory, deleteArtworkFromHistory, clearArtworkHistory, HistoryArtwork } from '../lib/history-storage'
+import { loadAnyImageFile } from '../lib/image-loader'
 import { LightroomAdjustments } from '../types'
 
 interface LandingUploadProps {
@@ -41,41 +42,12 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
   const processFile = async (file: File) => {
     setIsProcessing(true)
     try {
-      const fileNameLower = file.name.toLowerCase()
-      const isHeic =
-        fileNameLower.endsWith('.heic') ||
-        fileNameLower.endsWith('.heif') ||
-        file.type === 'image/heic' ||
-        file.type === 'image/heif'
-
-      if (isHeic) {
-        try {
-          const heic2anyModule = await import('heic2any')
-          const heic2any = heic2anyModule.default || heic2anyModule
-          const converted = await heic2any({
-            blob: file,
-            toType: 'image/jpeg',
-            quality: 0.95,
-          })
-          const blob = Array.isArray(converted) ? converted[0] : converted
-          const url = URL.createObjectURL(blob)
-          onImageSelect(url)
-          return
-        } catch (heicErr) {
-          console.warn('heic2any conversion error:', heicErr)
-        }
+      const res = await loadAnyImageFile(file)
+      if (res && res.dataUrl) {
+        onImageSelect(res.dataUrl)
       }
-
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          onImageSelect(event.target.result as string)
-        }
-      }
-      reader.onerror = (e) => {
-        console.error('File read error:', e)
-      }
-      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error('File processing error:', err)
     } finally {
       setIsProcessing(false)
     }
@@ -149,12 +121,12 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
   }
 
   return (
-    <div className="h-full w-full flex flex-col justify-between overflow-y-auto no-scrollbar bg-[#faf8f8] text-[#0f0b0c] p-4 sm:p-8 select-none relative">
+    <div className="h-full w-full max-h-[100dvh] flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] p-3 sm:p-5 select-none relative">
       {/* Loading Overlay */}
       {isProcessing && (
         <div className="fixed inset-0 z-50 bg-[#faf8f8]/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 border border-[#e3dbdc]">
           <Loader2 className="w-8 h-8 text-[#0f0b0c] animate-spin" />
-          <span className="text-base text-[#565051] font-normal">Обработка изображения...</span>
+          <span className="text-sm sm:text-base text-[#565051] font-normal">Обработка изображения...</span>
         </div>
       )}
 
@@ -162,7 +134,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.svg"
+        accept="image/*,.heic,.heif,.dng,.tiff,.tif,.avif,.webp,.png,.jpg,.jpeg,.bmp"
         onChange={handleFileChange}
         className="hidden"
       />
@@ -176,39 +148,39 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
         className="hidden"
       />
 
-      {/* Main Upload Dropzone Area (No second camera button in header) */}
-      <main className="flex-1 flex flex-col justify-center items-center max-w-2xl w-full mx-auto my-auto py-4 gap-4">
+      {/* Main Upload Dropzone Area (Zero vertical scroll, strictly fits 100dvh) */}
+      <main className="flex-1 min-h-0 flex flex-col justify-center items-center max-w-2xl w-full mx-auto my-auto py-1 gap-2.5">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full group cursor-pointer relative p-8 sm:p-12 transition-all duration-200 border flex flex-col items-center justify-center text-center ${
+          className={`w-full group cursor-pointer relative p-5 sm:p-8 transition-all duration-200 border flex flex-col items-center justify-center text-center ${
             isDragging
               ? 'border-[#34292a] bg-[#e3dbdc]/40'
               : 'border-[#e3dbdc] hover:border-[#34292a] bg-white/70 hover:bg-white'
           }`}
         >
           {/* Icon */}
-          <div className="w-12 h-12 border border-[#e3dbdc] flex items-center justify-center mb-4 text-[#0f0b0c] group-hover:border-[#34292a] transition-colors">
-            <Upload className="w-5 h-5 text-[#565051] group-hover:text-[#0f0b0c] transition-colors" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 border border-[#e3dbdc] flex items-center justify-center mb-2.5 text-[#0f0b0c] group-hover:border-[#34292a] transition-colors">
+            <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-[#565051] group-hover:text-[#0f0b0c] transition-colors" />
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-normal text-[#0f0b0c] mb-2 font-body tracking-tight">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-normal text-[#0f0b0c] mb-1 font-body tracking-tight">
             Перетащите изображение или документ сюда
           </h2>
-          <p className="text-sm text-[#565051] max-w-md mb-6 leading-relaxed">
-            Выберите файл из галереи, сделайте снимок на камеру или вставьте из буфера (JPG, PNG, HEIC, WebP, AVIF, TIFF)
+          <p className="text-xs sm:text-sm text-[#565051] max-w-md mb-4 leading-relaxed">
+            Выберите файл из галереи, сделайте снимок на камеру или вставьте из буфера (JPG, PNG, HEIC, Apple ProRAW DNG, TIFF, WebP, AVIF)
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 fileInputRef.current?.click()
               }}
-              className="px-6 py-2.5 bg-[#0f0b0c] text-[#faf8f8] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-sm font-normal tracking-wide transition-colors cursor-pointer"
+              className="px-5 py-2 bg-[#0f0b0c] text-[#faf8f8] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-xs sm:text-sm font-normal tracking-wide transition-colors cursor-pointer"
             >
               Выбрать фото
             </button>
@@ -219,9 +191,9 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
                 e.stopPropagation()
                 handleCameraClick()
               }}
-              className="px-5 py-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-[#faf8f8] text-[#0f0b0c] text-sm font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-4 py-2 border border-[#e3dbdc] hover:border-[#34292a] bg-[#faf8f8] text-[#0f0b0c] text-xs sm:text-sm font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Camera className="w-4 h-4 text-[#565051]" />
+              <Camera className="w-3.5 h-3.5 text-[#565051]" />
               <span>Камера</span>
             </button>
           </div>
@@ -229,7 +201,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
 
         {/* Edit History Carousel */}
         {historyItems.length > 0 && (
-          <div className="w-full border border-[#e3dbdc] p-3 bg-white/70">
+          <div className="w-full border border-[#e3dbdc] p-2 bg-white/70 shrink-0">
             <ArtworkHistoryCarousel
               items={historyItems}
               onSelect={(item) => onImageSelect(item.dataUrl, item.adjustments, item.id)}
@@ -241,37 +213,37 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
       </main>
 
       {/* Quick Test Samples Shelf */}
-      <footer className="w-full max-w-2xl mx-auto pt-2 pb-1 shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-normal tracking-widest uppercase text-[#565051]">
+      <footer className="w-full max-w-2xl mx-auto pt-1 pb-0 shrink-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] sm:text-[11px] font-normal tracking-widest uppercase text-[#565051]">
             Тестовые образцы
           </span>
-          <span className="text-[11px] text-[#565051]">клик для загрузки</span>
+          <span className="text-[10px] sm:text-[11px] text-[#565051]">клик для загрузки</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           <button
             onClick={() => handleLoadSample('document')}
-            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
+            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Скан каталога</div>
-            <p className="text-[11px] text-[#565051] truncate">Тест перспективы</p>
+            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Тест перспективы</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('fine-art')}
-            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
+            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Масляный портрет</div>
-            <p className="text-[11px] text-[#565051] truncate">Тональность кожи</p>
+            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Тональность кожи</p>
           </button>
 
           <button
             onClick={() => handleLoadSample('modern')}
-            className="group p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
+            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
           >
             <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Современный арт</div>
-            <p className="text-[11px] text-[#565051] truncate">Хроматика цвета</p>
+            <p className="text-[10px] sm:text-[11px] text-[#565051] truncate">Хроматика цвета</p>
           </button>
         </div>
       </footer>

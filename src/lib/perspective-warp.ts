@@ -124,6 +124,298 @@ export function validateScanPoints(
   return true
 }
 
+export function orderCorners(pts: ScanPoint[]): ScanPoint[] {
+  if (pts.length !== 4) return pts
+  const cx = pts.reduce((sum, p) => sum + p.x, 0) / 4
+  const cy = pts.reduce((sum, p) => sum + p.y, 0) / 4
+
+  const withAngle = pts.map(p => ({
+    p,
+    angle: Math.atan2(p.y - cy, p.x - cx)
+  }))
+  withAngle.sort((a, b) => a.angle - b.angle)
+
+  let tlIdx = 0
+  let minSum = Infinity
+  for (let i = 0; i < 4; i++) {
+    const sum = withAngle[i].p.x + withAngle[i].p.y
+    if (sum < minSum) {
+      minSum = sum
+      tlIdx = i
+    }
+  }
+
+  return [
+    withAngle[tlIdx].p,
+    withAngle[(tlIdx + 1) % 4].p,
+    withAngle[(tlIdx + 2) % 4].p,
+    withAngle[(tlIdx + 3) % 4].p
+  ]
+}
+
+/**
+ * Automatically detects the 4 corners of an artwork or document.
+ * 1. Checks OpenCV if loaded.
+ * 2. Uses lightning-fast pure-Canvas gradient ray-casting & quad fitting fallback (100% offline).
+ */
+export async function detectDocumentCorners(
+  sourceImage: CanvasImageSource,
+  naturalWidth: number,
+  naturalHeight: number
+): Promise<ScanPoint[]> {
+  if (isOpenCVAvailable()) {
+    try {
+      const cvCorners = detectWithOpenCV(sourceImage, naturalWidth, naturalHeight)
+      if (cvCorners && validateScanPoints(cvCorners, { width: naturalWidth, height: naturalHeight })) {
+        return cvCorners
+      }
+    } catch (e) {
+      console.warn('OpenCV corner detection error:', e)
+    }
+  }
+
+  return detectWithCanvasEdges(sourceImage, naturalWidth, naturalHeight)
+}
+
+function detectWithOpenCV(
+  sourceImage: CanvasImageSource,
+  naturalWidth: number,
+  naturalHeight: number
+): ScanPoint[] | null {
+  const cv = (window as any).cv
+  const tempCanvas = document.createElement('canvas')
+  const maxDim = 480
+  const scale = Math.min(1, maxDim / Math.max(naturalWidth, naturalHeight))
+  tempCanvas.width = Math.round(naturalWidth * scale)
+  tempCanvas.height = Math.round(naturalHeight * scale)
+  const ctx = tempCanvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(sourceImage, 0, 0, tempCanvas.width, tempCanvas.height)
+
+  const srcMat = cv.imread(tempCanvas)
+  const gray = new cv.Mat()
+  cv.cvtColor(srcMat, gray, cv.COLOR_RGBA2GRAY)
+  cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0)
+
+  const edges = new cv.Mat()
+  cv.Canny(gray, edges, 40, 140)
+
+  const contours = new cv.MatVector()
+  const hierarchy = new cv.Mat()
+  cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+
+  let maxArea = 0
+  let bestQuad: ScanPoint[] | null = null
+
+  for (let i = 0; i < contours.size(); i++) {
+    const cnt = contours.get(i)
+    const peri = cv.arcLength(cnt, true)
+
+    for (const epsFactor of [0.015, 0.02, 0.03, 0.04]) {
+      const approx = new cv.Mat()
+      cv.approxPolyDP(cnt, approx, epsFactor * peri, true)
+
+      if (approx.rows === 4) {
+        const area = cv.contourArea(approx)
+        if (area > maxArea && area > tempCanvas.width * tempCanvas.height * 0.15) {
+          const pts: ScanPoint[] = []
+          for (let j = 0; j < 4; j++) {
+            pts.push({
+              x: Math.round(approx.data32S[j * 2] / scale),
+              y: Math.round(approx.data32S[j * 2 + 1] / scale)
+            })
+          }
+          if (isConvexPolygon(pts)) {
+            maxArea = area
+            bestQuad = pts
+          }
+        }
+      }
+      approx.delete()
+      if (bestQuad) break
+    }
+    cnt.delete()
+  }
+
+  srcMat.delete()
+  gray.delete()
+  edges.delete()
+  contours.delete()
+  hierarchy.delete()
+
+  if (bestQuad && bestQuad.length === 4) {
+    return orderCorners(bestQuad)
+  }
+
+  return null
+}
+
+function detectWithCanvasEdges(
+  sourceImage: CanvasImageSource,
+  naturalWidth: number,
+  naturalHeight: number
+): ScanPoint[] {
+  const defaultCorners: ScanPoint[] = [
+    { x: Math.round(naturalWidth * 0.06), y: Math.round(naturalHeight * 0.06) },
+    { x: Math.round(naturalWidth * 0.94), y: Math.round(naturalHeight * 0.06) },
+    { x: Math.round(naturalWidth * 0.94), y: Math.round(naturalHeight * 0.94) },
+    { x: Math.round(naturalWidth * 0.06), y: Math.round(naturalHeight * 0.94) }
+  ]
+
+  try {
+    const canvas = document.createElement('canvas')
+    const maxDim = 280
+    const scale = Math.min(maxDim / naturalWidth, maxDim / naturalHeight)
+    const w = Math.max(20, Math.round(naturalWidth * scale))
+    const h = Math.max(20, Math.round(naturalHeight * scale))
+    canvas.width = w
+    canvas.height = h
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return defaultCorners
+
+    ctx.drawImage(sourceImage, 0, 0, w, h)
+    const imgData = ctx.getImageData(0, 0, w, h)
+    const data = imgData.data
+
+    const luma = new Float32Array(w * h)
+    for (let i = 0; i < w * h; i++) {
+      const idx = i * 4
+      luma[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]
+    }
+
+    let bgSum = 0
+    let bgCount = 0
+    const borderThickness = Math.max(2, Math.round(Math.min(w, h) * 0.04))
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (x < borderThickness || x >= w - borderThickness || y < borderThickness || y >= h - borderThickness) {
+          bgSum += luma[y * w + x]
+          bgCount++
+        }
+      }
+    }
+    const bgLuma = bgCount > 0 ? bgSum / bgCount : 128
+
+    const numRays = 16
+    const topPts: { x: number; y: number }[] = []
+    const bottomPts: { x: number; y: number }[] = []
+    const leftPts: { x: number; y: number }[] = []
+    const rightPts: { x: number; y: number }[] = []
+
+    const maxRayDepthY = Math.round(h * 0.42)
+    const maxRayDepthX = Math.round(w * 0.42)
+    const contrastThreshold = 22
+
+    for (let i = 1; i <= numRays; i++) {
+      const x = Math.round((i / (numRays + 1)) * w)
+
+      for (let y = borderThickness; y < maxRayDepthY; y++) {
+        const diff = Math.abs(luma[y * w + x] - bgLuma)
+        const grad = Math.abs(luma[(y + 1) * w + x] - luma[(y - 1) * w + x])
+        if (diff > contrastThreshold || grad > 25) {
+          topPts.push({ x, y })
+          break
+        }
+      }
+
+      for (let y = h - 1 - borderThickness; y > h - 1 - maxRayDepthY; y--) {
+        const diff = Math.abs(luma[y * w + x] - bgLuma)
+        const grad = Math.abs(luma[(y - 1) * w + x] - luma[(y + 1) * w + x])
+        if (diff > contrastThreshold || grad > 25) {
+          bottomPts.push({ x, y })
+          break
+        }
+      }
+    }
+
+    for (let i = 1; i <= numRays; i++) {
+      const y = Math.round((i / (numRays + 1)) * h)
+
+      for (let x = borderThickness; x < maxRayDepthX; x++) {
+        const diff = Math.abs(luma[y * w + x] - bgLuma)
+        const grad = Math.abs(luma[y * w + (x + 1)] - luma[y * w + (x - 1)])
+        if (diff > contrastThreshold || grad > 25) {
+          leftPts.push({ x, y })
+          break
+        }
+      }
+
+      for (let x = w - 1 - borderThickness; x > w - 1 - maxRayDepthX; x--) {
+        const diff = Math.abs(luma[y * w + x] - bgLuma)
+        const grad = Math.abs(luma[y * w + (x - 1)] - luma[y * w + (x + 1)])
+        if (diff > contrastThreshold || grad > 25) {
+          rightPts.push({ x, y })
+          break
+        }
+      }
+    }
+
+    if (topPts.length >= 4 && bottomPts.length >= 4 && leftPts.length >= 4 && rightPts.length >= 4) {
+      const fitHLine = (pts: { x: number; y: number }[]) => {
+        let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0
+        const n = pts.length
+        for (const p of pts) {
+          sumX += p.x
+          sumY += p.y
+          sumXX += p.x * p.x
+          sumXY += p.x * p.y
+        }
+        const denom = n * sumXX - sumX * sumX
+        const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
+        const b = (sumY - a * sumX) / n
+        return { a, b }
+      }
+
+      const fitVLine = (pts: { x: number; y: number }[]) => {
+        let sumX = 0, sumY = 0, sumYY = 0, sumXY = 0
+        const n = pts.length
+        for (const p of pts) {
+          sumX += p.x
+          sumY += p.y
+          sumYY += p.y * p.y
+          sumXY += p.x * p.y
+        }
+        const denom = n * sumYY - sumY * sumY
+        const a = Math.abs(denom) > 1e-4 ? (n * sumXY - sumX * sumY) / denom : 0
+        const b = (sumX - a * sumY) / n
+        return { a, b }
+      }
+
+      const topL = fitHLine(topPts)
+      const botL = fitHLine(bottomPts)
+      const leftL = fitVLine(leftPts)
+      const rightL = fitVLine(rightPts)
+
+      const intersect = (hLine: { a: number; b: number }, vLine: { a: number; b: number }) => {
+        const denom = 1 - hLine.a * vLine.a
+        if (Math.abs(denom) < 1e-4) return { x: 0, y: 0 }
+        const y = (hLine.a * vLine.b + hLine.b) / denom
+        const x = vLine.a * y + vLine.b
+        return {
+          x: Math.max(0, Math.min(naturalWidth, Math.round(x / scale))),
+          y: Math.max(0, Math.min(naturalHeight, Math.round(y / scale)))
+        }
+      }
+
+      const tl = intersect(topL, leftL)
+      const tr = intersect(topL, rightL)
+      const br = intersect(botL, rightL)
+      const bl = intersect(botL, leftL)
+
+      const candidate: ScanPoint[] = [tl, tr, br, bl]
+      if (validateScanPoints(candidate, { width: naturalWidth, height: naturalHeight })) {
+        return candidate
+      }
+    }
+  } catch (err) {
+    console.warn('Canvas edge detection fallback warning:', err)
+  }
+
+  return defaultCorners
+}
+
 /**
  * Solve 3x3 Homography Matrix mapping src -> dst
  */

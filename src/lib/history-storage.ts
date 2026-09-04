@@ -12,8 +12,24 @@ export interface HistoryArtwork {
 }
 
 const DB_NAME = 'artei_studio_db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'artwork_history'
+const SESSION_STORE = 'editor_session'
+
+export interface EditorSessionData {
+  id: string
+  imageUrl: string
+  originalUrl?: string
+  artworkId?: string
+  adjustments?: LightroomAdjustments
+  activeTab?: string
+  cropMode?: 'scan' | 'fixed'
+  aspectRatioLabel?: string
+  scanPoints?: { x: number; y: number }[]
+  fixedCropArea?: { x: number; y: number; width: number; height: number }
+  drawerHeight?: number
+  timestamp: number
+}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -28,6 +44,9 @@ function openDB(): Promise<IDBDatabase> {
       const db = (event.target as IDBOpenDBRequest).result
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains(SESSION_STORE)) {
+        db.createObjectStore(SESSION_STORE, { keyPath: 'id' })
       }
     }
 
@@ -114,5 +133,62 @@ export async function clearArtworkHistory(): Promise<void> {
     })
   } catch (e) {
     localStorage.removeItem('artei_artwork_history')
+  }
+}
+
+export async function saveEditorSession(session: Omit<EditorSessionData, 'id' | 'timestamp'>): Promise<void> {
+  const data: EditorSessionData = {
+    ...session,
+    id: 'current_session',
+    timestamp: Date.now()
+  }
+  try {
+    const db = await openDB()
+    const tx = db.transaction(SESSION_STORE, 'readwrite')
+    const store = tx.objectStore(SESSION_STORE)
+    store.put(data)
+    await new Promise<void>((res, rej) => {
+      tx.oncomplete = () => res()
+      tx.onerror = () => rej(tx.error)
+    })
+  } catch (e) {
+    try {
+      localStorage.setItem('artei_active_session', JSON.stringify(data))
+    } catch {}
+  }
+}
+
+export async function getEditorSession(): Promise<EditorSessionData | null> {
+  try {
+    const db = await openDB()
+    const tx = db.transaction(SESSION_STORE, 'readonly')
+    const store = tx.objectStore(SESSION_STORE)
+    const request = store.get('current_session')
+    return new Promise((resolve) => {
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => resolve(null)
+    })
+  } catch (e) {
+    try {
+      const raw = localStorage.getItem('artei_active_session')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  }
+}
+
+export async function clearEditorSession(): Promise<void> {
+  try {
+    const db = await openDB()
+    const tx = db.transaction(SESSION_STORE, 'readwrite')
+    const store = tx.objectStore(SESSION_STORE)
+    store.delete('current_session')
+    await new Promise<void>((res, rej) => {
+      tx.oncomplete = () => res()
+      tx.onerror = () => rej(tx.error)
+    })
+  } catch (e) {
+    localStorage.removeItem('artei_active_session')
   }
 }
