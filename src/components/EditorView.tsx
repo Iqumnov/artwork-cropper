@@ -890,52 +890,52 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   return (
     <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] select-none relative">
-      {/* Top App Bar — strictly icon-only buttons with responsive shrink protection */}
-      <header className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 z-30 border-b border-[#e3dbdc] bg-[#faf8f8] shrink-0 gap-1 sm:gap-1.5 min-w-0">
+      {/* Top App Bar — strictly icon-only buttons with shrink protection */}
+      <header className="flex items-center justify-between px-3 py-2 z-30 border-b border-[#e3dbdc] bg-[#faf8f8] shrink-0 gap-1.5 min-w-0">
         {/* Left: Back & History */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={async () => {
               saveSnapshotToHistory()
               await clearEditorSession()
               onBack()
             }}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
             title="Назад"
           >
-            <ArrowLeft className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5 text-[#565051]" />
+            <ArrowLeft className="w-4 h-4 text-[#565051]" />
           </button>
 
           <button
             onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-            className={`w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
+            className={`w-8 h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
               showHistoryDrawer
                 ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
                 : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
             }`}
             title="История изменений"
           >
-            <Clock className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5" />
+            <Clock className="w-4 h-4" />
           </button>
         </div>
 
         {/* Center: Undo, Redo, Before/After */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
+            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Отменить"
           >
-            <Undo2 className="w-3.5 h-3.5 max-[400px]:w-3 max-[400px]:h-3 text-[#565051]" />
+            <Undo2 className="w-3.5 h-3.5 text-[#565051]" />
           </button>
           <button
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
+            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Повторить"
           >
-            <Redo2 className="w-3.5 h-3.5 max-[400px]:w-3 max-[400px]:h-3 text-[#565051]" />
+            <Redo2 className="w-3.5 h-3.5 text-[#565051]" />
           </button>
 
           <button
@@ -944,46 +944,46 @@ export const EditorView: React.FC<EditorViewProps> = ({
             onMouseLeave={() => setShowBefore(false)}
             onTouchStart={() => setShowBefore(true)}
             onTouchEnd={() => setShowBefore(false)}
-            className={`w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
+            className={`w-8 h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
               showBefore
                 ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
                 : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
             }`}
             title="Удерживайте для сравнения До/После"
           >
-            <Eye className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5" />
+            <Eye className="w-4 h-4" />
           </button>
         </div>
 
         {/* Right: Mode Toggles, Direct Download & Export */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* View on Wall Button */}
           <button
             onClick={handleOpenWallView}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
+            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
             title="Примерка на стене"
           >
             <img
               src="/images/gallery.svg"
               alt=""
-              className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5 opacity-75 group-hover:opacity-100 transition-opacity"
+              className="w-4 h-4 opacity-75 group-hover:opacity-100 transition-opacity"
             />
           </button>
 
           <button
             onClick={handleDirectDownload}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 shrink-0 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
             title="Скачать файл"
           >
-            <Download className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5" />
+            <Download className="w-4 h-4" />
           </button>
 
           <button
             onClick={handleOpenExportModal}
-            className="w-8 h-8 max-[400px]:w-7 max-[400px]:h-7 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
             title="Параметры экспорта"
           >
-            <Share2 className="w-4 h-4 max-[400px]:w-3.5 max-[400px]:h-3.5 text-[#565051]" />
+            <Share2 className="w-4 h-4 text-[#565051]" />
           </button>
         </div>
       </header>

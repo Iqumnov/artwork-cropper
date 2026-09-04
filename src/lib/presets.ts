@@ -2485,5 +2485,830 @@ export const LIGHTROOM_PRESETS: Preset[] = [
     }
   }
 
+,
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: КИНО ---
+  // ==========================================
+  {
+    id: 'grand_budapest_hotel',
+    name: 'Гранд Будапешт (Розовый зефир)',
+    category: 'Кино',
+    adjustments: {
+      temp: 12,
+      tint: 20,
+      exposure: 0.16,
+      contrast: -8,
+      highlights: -22,
+      shadows: 18,
+      whites: 12,
+      blacks: 6,
+      vibrance: 26,
+      saturation: 4,
+      clarity: -6,
+      texture: 8,
+      fade: 8,
+      colorGrading: {
+        shadows: { hue: 195, sat: 22 },
+        midtones: { hue: 335, sat: 20 },
+        highlights: { hue: 348, sat: 28 },
+        balance: 6,
+      }
+    }
+  },
+  {
+    id: 'blade_runner_1982',
+    name: 'Бегущий по лезвию 1982',
+    category: 'Кино',
+    adjustments: {
+      temp: -10,
+      tint: -6,
+      exposure: -0.15,
+      contrast: 32,
+      highlights: -18,
+      shadows: -22,
+      whites: 16,
+      blacks: -28,
+      vibrance: 28,
+      saturation: 6,
+      clarity: 22,
+      texture: 18,
+      grain: 22,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 195, sat: 42 },
+        midtones: { hue: 215, sat: 18 },
+        highlights: { hue: 42, sat: 34 },
+        balance: -12,
+      }
+    }
+  },
+  {
+    id: 'mulholland_drive',
+    name: 'Малхолланд Драйв (Линч)',
+    category: 'Кино',
+    adjustments: {
+      temp: 14,
+      tint: 16,
+      exposure: 0.12,
+      contrast: 10,
+      highlights: -26,
+      shadows: 16,
+      whites: 14,
+      blacks: -12,
+      vibrance: 22,
+      saturation: 2,
+      clarity: -14,
+      texture: 10,
+      fade: 10,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 285, sat: 28 },
+        midtones: { hue: 320, sat: 14 },
+        highlights: { hue: 40, sat: 24 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'taxi_driver_1976',
+    name: 'Таксист (Скорсезе 1976)',
+    category: 'Кино',
+    adjustments: {
+      temp: 16,
+      tint: -8,
+      exposure: -0.1,
+      contrast: 26,
+      highlights: -16,
+      shadows: -14,
+      whites: 12,
+      blacks: -18,
+      vibrance: 24,
+      saturation: 12,
+      clarity: 18,
+      texture: 20,
+      grain: 28,
+      vignette: -22,
+      colorGrading: {
+        shadows: { hue: 160, sat: 24 },
+        midtones: { hue: 44, sat: 20 },
+        highlights: { hue: 12, sat: 32 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'akira_neo_tokyo',
+    name: 'Акира (Нео-Токио 1988)',
+    category: 'Кино',
+    adjustments: {
+      temp: -2,
+      tint: 18,
+      exposure: 0.08,
+      contrast: 36,
+      highlights: -10,
+      shadows: -18,
+      whites: 24,
+      blacks: -22,
+      vibrance: 38,
+      saturation: 22,
+      clarity: 24,
+      texture: 18,
+      colorGrading: {
+        shadows: { hue: 210, sat: 38 },
+        midtones: { hue: 345, sat: 26 },
+        highlights: { hue: 10, sat: 42 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'barry_lyndon_candle',
+    name: 'Барри Линдон (При свечах)',
+    category: 'Кино',
+    adjustments: {
+      temp: 26,
+      tint: 4,
+      exposure: 0.18,
+      contrast: 8,
+      highlights: -24,
+      shadows: 14,
+      whites: 10,
+      blacks: -14,
+      vibrance: 16,
+      saturation: -4,
+      clarity: -8,
+      texture: 12,
+      fade: 6,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 30, sat: 34 },
+        midtones: { hue: 38, sat: 24 },
+        highlights: { hue: 44, sat: 40 },
+        balance: 4,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: АРХИВ ---
+  // ==========================================
+  {
+    id: 'heliography_niepce_1826',
+    name: 'Гелиография Ньепса (1826)',
+    category: 'Архив',
+    adjustments: {
+      temp: -2,
+      tint: -2,
+      exposure: -0.15,
+      contrast: 22,
+      highlights: -34,
+      shadows: -20,
+      whites: 4,
+      blacks: -26,
+      vibrance: -80,
+      saturation: -95,
+      clarity: 20,
+      texture: 28,
+      grain: 34,
+      fade: 8,
+      vignette: -32,
+      colorGrading: {
+        shadows: { hue: 210, sat: 10 },
+        midtones: { hue: 200, sat: 6 },
+        highlights: { hue: 50, sat: 8 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'woodburytype_1864',
+    name: 'Вудберитипия (1864)',
+    category: 'Архив',
+    adjustments: {
+      temp: 18,
+      tint: 8,
+      exposure: 0.08,
+      contrast: 20,
+      highlights: -22,
+      shadows: 8,
+      whites: 10,
+      blacks: -18,
+      vibrance: -22,
+      saturation: -48,
+      clarity: 14,
+      texture: 16,
+      grain: 12,
+      fade: 6,
+      vignette: -18,
+      colorGrading: {
+        shadows: { hue: 26, sat: 38 },
+        midtones: { hue: 32, sat: 22 },
+        highlights: { hue: 40, sat: 20 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'bromoil_1907',
+    name: 'Бромойль (Масляный пигмент 1907)',
+    category: 'Архив',
+    adjustments: {
+      temp: 8,
+      tint: 4,
+      exposure: 0.02,
+      contrast: 14,
+      highlights: -28,
+      shadows: 14,
+      whites: 6,
+      blacks: -14,
+      vibrance: -55,
+      saturation: -75,
+      clarity: 10,
+      texture: 32,
+      grain: 30,
+      fade: 12,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 35, sat: 20 },
+        midtones: { hue: 40, sat: 12 },
+        highlights: { hue: 45, sat: 16 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'gum_bichromate_1858',
+    name: 'Гуммиарабиковая печать (1858)',
+    category: 'Архив',
+    adjustments: {
+      temp: 24,
+      tint: 14,
+      exposure: 0.12,
+      contrast: 6,
+      highlights: -26,
+      shadows: 20,
+      whites: 8,
+      blacks: 6,
+      vibrance: 8,
+      saturation: -24,
+      clarity: -10,
+      texture: 22,
+      grain: 24,
+      fade: 16,
+      vignette: -22,
+      colorGrading: {
+        shadows: { hue: 18, sat: 34 },
+        midtones: { hue: 28, sat: 22 },
+        highlights: { hue: 42, sat: 26 },
+        balance: 4,
+      }
+    }
+  },
+  {
+    id: 'victorian_stereo_1890',
+    name: 'Стереофотография Victorian (1890)',
+    category: 'Архив',
+    adjustments: {
+      temp: 20,
+      tint: 6,
+      exposure: 0.06,
+      contrast: 18,
+      highlights: -24,
+      shadows: 10,
+      whites: 8,
+      blacks: -12,
+      vibrance: -18,
+      saturation: -42,
+      clarity: 12,
+      texture: 20,
+      grain: 20,
+      fade: 10,
+      vignette: -26,
+      colorGrading: {
+        shadows: { hue: 30, sat: 32 },
+        midtones: { hue: 38, sat: 20 },
+        highlights: { hue: 45, sat: 22 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'svema_slide_1975',
+    name: 'Советский диапозитив (Свема ЦО-32Д)',
+    category: 'Архив',
+    adjustments: {
+      temp: 18,
+      tint: -8,
+      exposure: 0.05,
+      contrast: 22,
+      highlights: -20,
+      shadows: -10,
+      whites: 12,
+      blacks: -14,
+      vibrance: 16,
+      saturation: 4,
+      clarity: 14,
+      texture: 16,
+      grain: 24,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 170, sat: 20 },
+        midtones: { hue: 48, sat: 22 },
+        highlights: { hue: 52, sat: 32 },
+        balance: 2,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: ПЛЁНКА ---
+  // ==========================================
+  {
+    id: 'kodak_trix_320',
+    name: 'Kodak Tri-X 320 (TXP Студийная)',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.08,
+      contrast: 28,
+      highlights: -14,
+      shadows: -16,
+      whites: 20,
+      blacks: -22,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 22,
+      texture: 20,
+      grain: 16,
+      vignette: -10,
+    }
+  },
+  {
+    id: 'fuji_neopan_400',
+    name: 'Fuji Neopan 400 Presto',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: -0.05,
+      contrast: 34,
+      highlights: -22,
+      shadows: -22,
+      whites: 16,
+      blacks: -26,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 26,
+      texture: 24,
+      grain: 20,
+      vignette: -14,
+    }
+  },
+  {
+    id: 'kodak_plus_x_125',
+    name: 'Kodak Plus-X 125 Pan',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.04,
+      contrast: 20,
+      highlights: -20,
+      shadows: 8,
+      whites: 14,
+      blacks: -14,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 16,
+      texture: 18,
+      grain: 10,
+    }
+  },
+  {
+    id: 'cinestill_50d_daylight',
+    name: 'CineStill 50D Дневной свет',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 4,
+      tint: 2,
+      exposure: 0.06,
+      contrast: 18,
+      highlights: -16,
+      shadows: 6,
+      whites: 14,
+      blacks: -12,
+      vibrance: 22,
+      saturation: 8,
+      clarity: 16,
+      texture: 14,
+      grain: 8,
+      colorGrading: {
+        shadows: { hue: 205, sat: 18 },
+        midtones: { hue: 38, sat: 12 },
+        highlights: { hue: 42, sat: 22 },
+        balance: -2,
+      }
+    }
+  },
+  {
+    id: 'lomography_metropolis',
+    name: 'Lomography Metropolis XR',
+    category: 'Плёнка',
+    adjustments: {
+      temp: -12,
+      tint: -8,
+      exposure: -0.08,
+      contrast: 30,
+      highlights: -18,
+      shadows: -16,
+      whites: 12,
+      blacks: -22,
+      vibrance: -16,
+      saturation: -34,
+      clarity: 24,
+      texture: 22,
+      grain: 22,
+      vignette: -20,
+      colorGrading: {
+        shadows: { hue: 180, sat: 28 },
+        midtones: { hue: 210, sat: 14 },
+        highlights: { hue: 46, sat: 18 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'konica_centuria_400',
+    name: 'Konica Centuria 400',
+    category: 'Плёнка',
+    adjustments: {
+      temp: 14,
+      tint: 8,
+      exposure: 0.1,
+      contrast: 16,
+      highlights: -18,
+      shadows: 12,
+      whites: 10,
+      blacks: -10,
+      vibrance: 24,
+      saturation: 8,
+      clarity: 12,
+      texture: 14,
+      grain: 18,
+      colorGrading: {
+        shadows: { hue: 24, sat: 22 },
+        midtones: { hue: 330, sat: 12 },
+        highlights: { hue: 44, sat: 22 },
+        balance: 2,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: СЛАЙД ---
+  // ==========================================
+  {
+    id: 'fujichrome_sensia_100',
+    name: 'Fujichrome Sensia 100',
+    category: 'Слайд',
+    adjustments: {
+      temp: 2,
+      tint: 2,
+      exposure: 0.04,
+      contrast: 20,
+      highlights: -16,
+      shadows: -8,
+      whites: 14,
+      blacks: -14,
+      vibrance: 20,
+      saturation: 6,
+      clarity: 16,
+      texture: 14,
+      grain: 6,
+      colorGrading: {
+        shadows: { hue: 210, sat: 14 },
+        midtones: { hue: 40, sat: 10 },
+        highlights: { hue: 46, sat: 16 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'kodak_elite_chrome_ebx',
+    name: 'Kodak Elite Chrome Extra Color',
+    category: 'Слайд',
+    adjustments: {
+      temp: 8,
+      tint: 2,
+      exposure: 0.06,
+      contrast: 32,
+      highlights: -16,
+      shadows: -16,
+      whites: 20,
+      blacks: -24,
+      vibrance: 36,
+      saturation: 22,
+      clarity: 24,
+      texture: 20,
+      grain: 8,
+      vignette: -14,
+      colorGrading: {
+        shadows: { hue: 220, sat: 30 },
+        midtones: { hue: 35, sat: 18 },
+        highlights: { hue: 42, sat: 32 },
+        balance: -4,
+      }
+    }
+  },
+  {
+    id: 'agfachrome_rsx_ii',
+    name: 'Agfachrome RSX II 100',
+    category: 'Слайд',
+    adjustments: {
+      temp: 16,
+      tint: -2,
+      exposure: 0.05,
+      contrast: 22,
+      highlights: -20,
+      shadows: -10,
+      whites: 12,
+      blacks: -16,
+      vibrance: 24,
+      saturation: 8,
+      clarity: 18,
+      texture: 16,
+      grain: 10,
+      colorGrading: {
+        shadows: { hue: 140, sat: 20 },
+        midtones: { hue: 38, sat: 16 },
+        highlights: { hue: 46, sat: 26 },
+        balance: 0,
+      }
+    }
+  },
+  {
+    id: 'scotch_chrome_1000',
+    name: 'Scotch Chrome 1000 (Зернистый)',
+    category: 'Слайд',
+    adjustments: {
+      temp: 10,
+      tint: 12,
+      exposure: 0.14,
+      contrast: 10,
+      highlights: -24,
+      shadows: 18,
+      whites: 10,
+      blacks: -8,
+      vibrance: 18,
+      saturation: -4,
+      clarity: -6,
+      texture: 12,
+      grain: 34,
+      fade: 8,
+      colorGrading: {
+        shadows: { hue: 270, sat: 18 },
+        midtones: { hue: 35, sat: 12 },
+        highlights: { hue: 44, sat: 20 },
+        balance: 4,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: МОНОХРОМ ---
+  // ==========================================
+  {
+    id: 'ilford_xp2_super',
+    name: 'Ilford XP2 Super 400 (Хромогенный)',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.1,
+      contrast: 18,
+      highlights: -22,
+      shadows: 12,
+      whites: 12,
+      blacks: -14,
+      vibrance: -100,
+      saturation: -100,
+      clarity: 14,
+      texture: 12,
+      grain: 4,
+    }
+  },
+  {
+    id: 'fomapan_retropan_320',
+    name: 'Fomapan Retropan 320 Soft',
+    category: 'Монохром',
+    adjustments: {
+      temp: 0,
+      tint: 0,
+      exposure: 0.14,
+      contrast: -6,
+      highlights: -28,
+      shadows: 24,
+      whites: 8,
+      blacks: 4,
+      vibrance: -100,
+      saturation: -100,
+      clarity: -8,
+      texture: 14,
+      grain: 26,
+      fade: 10,
+    }
+  },
+  {
+    id: 'gold_toning_archival',
+    name: 'Золотой вираж (Gold Toning)',
+    category: 'Монохром',
+    adjustments: {
+      temp: -4,
+      tint: 8,
+      exposure: 0.05,
+      contrast: 24,
+      highlights: -16,
+      shadows: -14,
+      whites: 16,
+      blacks: -18,
+      vibrance: -90,
+      saturation: -90,
+      clarity: 18,
+      texture: 16,
+      grain: 12,
+      colorGrading: {
+        shadows: { hue: 280, sat: 22 },
+        midtones: { hue: 240, sat: 8 },
+        highlights: { hue: 45, sat: 10 },
+        balance: -8,
+      }
+    }
+  },
+  {
+    id: 'pure_palladium_print',
+    name: 'Палладиевый отпечаток',
+    category: 'Монохром',
+    adjustments: {
+      temp: 14,
+      tint: 6,
+      exposure: 0.06,
+      contrast: 12,
+      highlights: -26,
+      shadows: 14,
+      whites: 8,
+      blacks: -12,
+      vibrance: -75,
+      saturation: -75,
+      clarity: 12,
+      texture: 16,
+      grain: 16,
+      fade: 8,
+      colorGrading: {
+        shadows: { hue: 32, sat: 24 },
+        midtones: { hue: 38, sat: 16 },
+        highlights: { hue: 44, sat: 18 },
+        balance: 0,
+      }
+    }
+  },
+
+  // ==========================================
+  // --- ДОПОЛНИТЕЛЬНЫЕ ШЕДЕВРЫ: АРТ ---
+  // ==========================================
+  {
+    id: 'klimt_golden_phase',
+    name: 'Густав Климт (Золотой период)',
+    category: 'Арт',
+    adjustments: {
+      temp: 28,
+      tint: 4,
+      exposure: 0.16,
+      contrast: 24,
+      highlights: -14,
+      shadows: -6,
+      whites: 20,
+      blacks: -16,
+      vibrance: 32,
+      saturation: 16,
+      clarity: 22,
+      texture: 26,
+      grain: 10,
+      colorGrading: {
+        shadows: { hue: 30, sat: 36 },
+        midtones: { hue: 40, sat: 32 },
+        highlights: { hue: 48, sat: 48 },
+        balance: 4,
+      }
+    }
+  },
+  {
+    id: 'caspar_david_friedrich',
+    name: 'Каспар Давид Фридрих (Романтизм)',
+    category: 'Арт',
+    adjustments: {
+      temp: -8,
+      tint: 4,
+      exposure: -0.1,
+      contrast: 22,
+      highlights: -24,
+      shadows: -18,
+      whites: 10,
+      blacks: -20,
+      vibrance: 12,
+      saturation: -12,
+      clarity: 16,
+      texture: 18,
+      grain: 16,
+      fade: 8,
+      vignette: -24,
+      colorGrading: {
+        shadows: { hue: 215, sat: 32 },
+        midtones: { hue: 200, sat: 16 },
+        highlights: { hue: 38, sat: 28 },
+        balance: -10,
+      }
+    }
+  },
+  {
+    id: 'monet_waterlilies',
+    name: 'Клод Моне (Кувшинки в Живерни)',
+    category: 'Арт',
+    adjustments: {
+      temp: -4,
+      tint: 16,
+      exposure: 0.18,
+      contrast: -6,
+      highlights: -22,
+      shadows: 18,
+      whites: 12,
+      blacks: -6,
+      vibrance: 34,
+      saturation: 10,
+      clarity: -12,
+      texture: 14,
+      fade: 6,
+      colorGrading: {
+        shadows: { hue: 250, sat: 28 },
+        midtones: { hue: 165, sat: 22 },
+        highlights: { hue: 42, sat: 22 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'gauguin_tahiti',
+    name: 'Поль Гоген (Таити)',
+    category: 'Арт',
+    adjustments: {
+      temp: 20,
+      tint: 10,
+      exposure: 0.1,
+      contrast: 26,
+      highlights: -12,
+      shadows: -10,
+      whites: 16,
+      blacks: -14,
+      vibrance: 38,
+      saturation: 24,
+      clarity: 20,
+      texture: 22,
+      colorGrading: {
+        shadows: { hue: 220, sat: 32 },
+        midtones: { hue: 25, sat: 26 },
+        highlights: { hue: 46, sat: 40 },
+        balance: 2,
+      }
+    }
+  },
+  {
+    id: 'botticelli_venus',
+    name: 'Сандро Боттичелли (Рождение Венеры)',
+    category: 'Арт',
+    adjustments: {
+      temp: 6,
+      tint: 12,
+      exposure: 0.15,
+      contrast: 10,
+      highlights: -20,
+      shadows: 16,
+      whites: 12,
+      blacks: -8,
+      vibrance: 22,
+      saturation: -2,
+      clarity: 8,
+      texture: 12,
+      fade: 4,
+      colorGrading: {
+        shadows: { hue: 175, sat: 22 },
+        midtones: { hue: 345, sat: 14 },
+        highlights: { hue: 44, sat: 24 },
+        balance: 0,
+      }
+    }
+  }
+
 ]
+
 
