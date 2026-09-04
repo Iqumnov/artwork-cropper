@@ -12,6 +12,7 @@ import {
   FlipHorizontal,
   FlipVertical,
   Plus,
+  Trash2,
   Check
 } from 'lucide-react'
 import {
@@ -82,6 +83,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
   })
   const [isSavingPreset, setIsSavingPreset] = useState(false)
   const [newPresetName, setNewPresetName] = useState('')
+  const [selectedPresetCategory, setSelectedPresetCategory] = useState<string>('Все')
 
   const isResizingRef = useRef(false)
   const resizeStartYRef = useRef(0)
@@ -158,16 +160,26 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     const newPreset: Preset = {
       id: `custom_${Date.now()}`,
       name: newPresetName.trim(),
-      category: 'Пользовательский',
+      category: 'Пользовательские',
+      isCustom: true,
       adjustments: { ...adjustments }
     }
-    const updated = [...customPresets, newPreset]
+    const updated = [newPreset, ...customPresets]
     setCustomPresets(updated)
     try {
       localStorage.setItem('artei_custom_presets', JSON.stringify(updated))
     } catch {}
     setNewPresetName('')
     setIsSavingPreset(false)
+  }
+
+  const handleDeleteCustomPreset = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const updated = customPresets.filter(p => p.id !== id)
+    setCustomPresets(updated)
+    try {
+      localStorage.setItem('artei_custom_presets', JSON.stringify(updated))
+    } catch {}
   }
 
   const HSL_NAMES_RU: Record<ColorChannel, string> = {
@@ -255,7 +267,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
       <div className="flex-1 p-3 sm:p-4 max-w-2xl mx-auto w-full overflow-y-auto no-scrollbar">
         {/* --- CROP CONTROLS (TAB 1) --- */}
         {activeTab === 'crop' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {/* Mode Switcher */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 border border-[#e3dbdc] p-0.5 bg-white">
@@ -267,7 +279,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                       : 'border-transparent text-[#565051] hover:text-[#0f0b0c]'
                   }`}
                 >
-                  Перспектива (4 точки)
+                  Перспектива
                 </button>
                 <button
                   onClick={() => onCropModeChange('fixed')}
@@ -301,7 +313,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-[#565051]" />
-                    <span>Автоопределение</span>
+                    <span>Авто</span>
                   </button>
 
                   <button
@@ -309,7 +321,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-[#565051]" />
-                    <span>Сбросить рамку</span>
+                    <span>Сброс</span>
                   </button>
                 </div>
 
@@ -384,6 +396,37 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Gradual Angle Manipulation (-45.0° .. +45.0°, step 0.1°) */}
+            <div className="flex items-center gap-2.5 bg-white p-2 border border-[#e3dbdc]">
+              <div className="flex items-center gap-1.5 shrink-0 text-xs text-[#0f0b0c]">
+                <RotateCw className="w-3.5 h-3.5 text-[#565051]" />
+                <span className="text-[11px] sm:text-xs font-normal">Угол наклона</span>
+              </div>
+              <input
+                type="range"
+                min="-45"
+                max="45"
+                step="0.1"
+                value={adjustments.straighten}
+                onChange={(e) => updateAdj('straighten', parseFloat(e.target.value))}
+                className="flex-1 lr-slider"
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-mono w-12 text-right text-[#0f0b0c]">
+                  {adjustments.straighten > 0 ? `+${adjustments.straighten.toFixed(1)}°` : `${adjustments.straighten.toFixed(1)}°`}
+                </span>
+                {adjustments.straighten !== 0 && (
+                  <button
+                    onClick={() => updateAdj('straighten', 0)}
+                    className="text-[10px] px-1.5 py-0.5 border border-[#e3dbdc] hover:border-[#34292a] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
+                    title="Сбросить угол в 0°"
+                  >
+                    0°
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -637,6 +680,14 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               onChange={(v) => updateAdj('grain', v)}
               onReset={() => updateAdj('grain', 0)}
             />
+            <SliderRow
+              label="Матовость"
+              value={adjustments.fade || 0}
+              min={0}
+              max={100}
+              onChange={(v) => updateAdj('fade', v)}
+              onReset={() => updateAdj('fade', 0)}
+            />
           </div>
         )}
 
@@ -668,35 +719,34 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
             {/* Channel Switcher */}
             <div className="flex items-center gap-1 border border-[#e3dbdc] p-0.5 bg-white">
               {[
-                { id: 'rgb', label: 'RGB', color: 'text-[#0f0b0c]' },
-                { id: 'red', label: 'Красный', color: 'text-red-600' },
-                { id: 'green', label: 'Зелёный', color: 'text-green-700' },
-                { id: 'blue', label: 'Синий', color: 'text-blue-700' },
-              ].map((c) => (
+                { id: 'rgb', label: 'RGB', color: '#0f0b0c' },
+                { id: 'red', label: 'R', color: '#dc2626' },
+                { id: 'green', label: 'G', color: '#16a34a' },
+                { id: 'blue', label: 'B', color: '#2563eb' }
+              ].map((ch) => (
                 <button
-                  key={c.id}
-                  onClick={() => setSelectedCurveChannel(c.id as any)}
-                  className={`px-3 py-1 text-xs transition-colors cursor-pointer border ${
-                    selectedCurveChannel === c.id
+                  key={ch.id}
+                  onClick={() => setSelectedCurveChannel(ch.id as any)}
+                  className={`px-3 py-1 text-xs font-normal transition-colors cursor-pointer border ${
+                    selectedCurveChannel === ch.id
                       ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
-                      : `bg-transparent border-transparent ${c.color} hover:border-[#e3dbdc]`
+                      : 'border-transparent text-[#565051] hover:text-[#0f0b0c]'
                   }`}
                 >
-                  {c.label}
+                  <span style={{ color: selectedCurveChannel === ch.id ? '#faf8f8' : ch.color }}>{ch.label}</span>
                 </button>
               ))}
             </div>
 
-            {/* Interactive Spline Curve Component (No extra outer container border) */}
             <ToneCurveEditor
               channel={selectedCurveChannel}
-              points={adjustments.curves[selectedCurveChannel] || [{ x: 0, y: 0 }, { x: 255, y: 255 }]}
-              onChange={(newPts) => {
+              points={adjustments.curves[selectedCurveChannel]}
+              onChange={(newPoints) => {
                 onChange({
                   ...adjustments,
                   curves: {
                     ...adjustments.curves,
-                    [selectedCurveChannel]: newPts
+                    [selectedCurveChannel]: newPoints
                   }
                 })
               }}
@@ -706,19 +756,20 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
 
         {/* --- PRESETS CATALOG --- */}
         {activeTab === 'presets' && (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-3">
             {/* Save Custom Preset Header */}
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-wider text-[#565051] font-normal">
-                Коллекция стилей
+                Коллекция пресетов
               </span>
               {!isSavingPreset ? (
                 <button
                   onClick={() => setIsSavingPreset(true)}
-                  className="flex items-center gap-1 text-xs text-[#0f0b0c] hover:text-[#34292a] font-normal underline cursor-pointer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs text-[#0f0b0c] transition-colors cursor-pointer"
+                  title="Сохранить текущие настройки ползунков как новый пресет"
                 >
-                  <Plus className="w-3 h-3" />
-                  Сохранить текущие настройки
+                  <Plus className="w-3.5 h-3.5 text-[#565051]" />
+                  <span>Добавить</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -732,13 +783,13 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                   />
                   <button
                     onClick={handleSaveCustomPreset}
-                    className="px-2.5 py-1 bg-[#0f0b0c] text-[#faf8f8] text-xs font-normal border border-[#0f0b0c]"
+                    className="px-2.5 py-1 bg-[#0f0b0c] text-[#faf8f8] text-xs font-normal border border-[#0f0b0c] cursor-pointer"
                   >
                     Сохранить
                   </button>
                   <button
                     onClick={() => setIsSavingPreset(false)}
-                    className="px-1.5 py-1 text-[#565051] text-xs"
+                    className="px-1.5 py-1 text-[#565051] hover:text-[#0f0b0c] text-xs cursor-pointer"
                   >
                     Отмена
                   </button>
@@ -746,22 +797,119 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               )}
             </div>
 
-            {/* Presets Grid (No commercial tags or badges) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {[...customPresets, ...LIGHTROOM_PRESETS].map((preset) => (
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 border-b border-[#e3dbdc] pb-2">
+              {[
+                { id: 'Все', label: 'Все' },
+                { id: 'Пользовательские', label: `Пользовательские ${customPresets.length > 0 ? `(${customPresets.length})` : ''}` },
+                { id: 'Плёнка', label: 'Плёнка' },
+                { id: 'Слайд', label: 'Слайд' },
+                { id: 'Монохром', label: 'Монохром' },
+                { id: 'Кино', label: 'Кино' },
+                { id: 'Архив', label: 'Архив' },
+                { id: 'Арт', label: 'Арт' },
+              ].map((cat) => (
                 <button
-                  key={preset.id}
-                  onClick={() => handleApplyPreset(preset)}
-                  className="group relative flex flex-col p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
+                  key={cat.id}
+                  onClick={() => setSelectedPresetCategory(cat.id)}
+                  className={`px-2.5 py-1 text-[11px] sm:text-xs font-normal whitespace-nowrap transition-colors shrink-0 cursor-pointer border ${
+                    selectedPresetCategory === cat.id
+                      ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                      : 'border-transparent text-[#565051] hover:text-[#0f0b0c] hover:border-[#e3dbdc]'
+                  }`}
                 >
-                  <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
-                    {preset.name}
-                  </span>
-                  <span className="text-[11px] text-[#565051] truncate mt-0.5">
-                    {preset.category}
-                  </span>
+                  {cat.label}
                 </button>
               ))}
+            </div>
+
+            {/* Helper Notice */}
+            <p className="text-[11px] text-[#565051] leading-tight">
+              Все пресеты можно гибко регулировать — они выставляют параметры на ползунках и кривых.
+            </p>
+
+            {/* Presets by Groups: Custom Group ALWAYS 1st */}
+            <div className="flex flex-col gap-4">
+              {/* Group 1: Custom Presets (Always First) */}
+              {(selectedPresetCategory === 'Все' || selectedPresetCategory === 'Пользовательские') && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal border-b border-[#e3dbdc]/60 pb-1">
+                    <span>Пользовательские пресеты</span>
+                    <span>{customPresets.length}</span>
+                  </div>
+
+                  {customPresets.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {customPresets.map((preset) => (
+                        <div
+                          key={preset.id}
+                          onClick={() => handleApplyPreset(preset)}
+                          className="group relative flex items-center justify-between p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
+                        >
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
+                              {preset.name}
+                            </span>
+                            <span className="text-[10px] text-[#565051] truncate mt-0.5">
+                              Пользовательский
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteCustomPreset(preset.id, e)}
+                            className="w-6 h-6 shrink-0 flex items-center justify-center text-[#565051] hover:text-red-600 hover:bg-[#e3dbdc]/30 transition-colors cursor-pointer"
+                            title="Удалить пресет"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    selectedPresetCategory === 'Пользовательские' && (
+                      <div className="text-xs text-[#565051] py-4 text-center border border-dashed border-[#e3dbdc]">
+                        Нет сохраненных стилей. Нажмите кнопку «Добавить», чтобы сохранить текущие настройки.
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+              {/* Built-in Groups (Плёнка, Слайд, Монохром, Кино, Архив, Арт) */}
+              {(['Плёнка', 'Слайд', 'Монохром', 'Кино', 'Архив', 'Арт'] as const)
+                .filter((cat) => selectedPresetCategory === 'Все' || selectedPresetCategory === cat)
+                .map((category) => {
+                  const categoryPresets = LIGHTROOM_PRESETS.filter((p) => p.category === category)
+                  if (categoryPresets.length === 0) return null
+
+                  return (
+                    <div key={category} className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal border-b border-[#e3dbdc]/60 pb-1">
+                        <span>{category}</span>
+                        <span>{categoryPresets.length}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {categoryPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleApplyPreset(preset)}
+                            className="group relative flex flex-col p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
+                          >
+                            <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
+                              {preset.name}
+                            </span>
+                            <span className="text-[10px] text-[#565051] truncate mt-0.5">
+                              {preset.category}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           </div>
         )}

@@ -346,13 +346,14 @@ export function applyLightroomAdjustments(
       }
     }
 
-    // --- Grain ---
-    if (adjustments.grain > 0) {
-      const grainFactor = adjustments.grain * 0.45
-      const noise = (Math.random() - 0.5) * grainFactor
-      r += noise
-      g += noise
-      b += noise
+    // --- Fade (Матовость / Black point lift) ---
+    if (adjustments.fade && adjustments.fade > 0) {
+      const fadeNorm = adjustments.fade / 100
+      const lift = fadeNorm * 38
+      const comp = 1 - fadeNorm * 0.1
+      r = r * comp + lift * (1 - r / 255)
+      g = g * comp + lift * (1 - g / 255)
+      b = b * comp + lift * (1 - b / 255)
     }
 
     // Final Output Clamping

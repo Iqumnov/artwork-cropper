@@ -291,7 +291,15 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (!ctx) return
 
     ctx.clearRect(0, 0, w, h)
-    ctx.drawImage(baseImage, 0, 0)
+    ctx.save()
+    if (adjustments.straighten) {
+      ctx.translate(w / 2, h / 2)
+      ctx.rotate((adjustments.straighten * Math.PI) / 180)
+      ctx.drawImage(baseImage, -w / 2, -h / 2)
+    } else {
+      ctx.drawImage(baseImage, 0, 0)
+    }
+    ctx.restore()
 
     if (showBefore) return
 
@@ -343,9 +351,27 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
 
+    // If straighten is applied, produce rotated intermediate canvas first so crop captures rotated image inside frame
+    let currentSource: CanvasImageSource = baseImage
+    if (adjustments.straighten) {
+      const rotCanvas = document.createElement('canvas')
+      rotCanvas.width = imgW
+      rotCanvas.height = imgH
+      const rCtx = rotCanvas.getContext('2d')
+      if (rCtx) {
+        rCtx.translate(imgW / 2, imgH / 2)
+        rCtx.rotate((adjustments.straighten * Math.PI) / 180)
+        rCtx.drawImage(baseImage, -imgW / 2, -imgH / 2)
+        currentSource = rotCanvas
+      }
+    }
+
     if (cropMode === 'scan') {
-      const croppedCanvas = warpPerspectiveCanvas(baseImage, scanPoints, imgW, imgH)
+      const croppedCanvas = warpPerspectiveCanvas(currentSource, scanPoints, imgW, imgH)
       setBaseImage(croppedCanvas)
+      if (adjustments.straighten) {
+        handleAdjustmentsChange({ ...adjustments, straighten: 0 })
+      }
       initCropBounds(croppedCanvas.width, croppedCanvas.height)
       resetViewport(croppedCanvas.width, croppedCanvas.height)
     } else {
@@ -355,7 +381,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       const ctx = out.getContext('2d')
       if (ctx) {
         ctx.drawImage(
-          baseImage,
+          currentSource,
           fixedCropArea.x,
           fixedCropArea.y,
           fixedCropArea.width,
@@ -367,6 +393,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
         )
       }
       setBaseImage(out)
+      if (adjustments.straighten) {
+        handleAdjustmentsChange({ ...adjustments, straighten: 0 })
+      }
       initCropBounds(out.width, out.height)
       resetViewport(out.width, out.height)
     }

@@ -68,6 +68,7 @@ export interface LightroomAdjustments {
   texture: number // -100 to +100
   vignette: number // -100 to +100
   grain: number // 0 to 100
+  fade: number // 0 to 100 (Матовость / Black lift)
 
   // DETAIL
   sharpen: number // 0 to 100
@@ -100,6 +101,7 @@ export interface Preset {
   name: string
   category: string
   badge?: string
+  isCustom?: boolean
   adjustments: Partial<LightroomAdjustments>
 }
 

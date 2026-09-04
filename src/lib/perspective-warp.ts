@@ -264,10 +264,10 @@ function detectWithCanvasEdges(
 
   try {
     const canvas = document.createElement('canvas')
-    const maxDim = 280
+    const maxDim = 360
     const scale = Math.min(maxDim / naturalWidth, maxDim / naturalHeight)
-    const w = Math.max(20, Math.round(naturalWidth * scale))
-    const h = Math.max(20, Math.round(naturalHeight * scale))
+    const w = Math.max(40, Math.round(naturalWidth * scale))
+    const h = Math.max(40, Math.round(naturalHeight * scale))
     canvas.width = w
     canvas.height = h
 
@@ -286,11 +286,11 @@ function detectWithCanvasEdges(
 
     let bgSum = 0
     let bgCount = 0
-    const borderThickness = Math.max(2, Math.round(Math.min(w, h) * 0.04))
+    const rim = Math.max(2, Math.round(Math.min(w, h) * 0.03))
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (x < borderThickness || x >= w - borderThickness || y < borderThickness || y >= h - borderThickness) {
+        if (x < rim || x >= w - rim || y < rim || y >= h - rim) {
           bgSum += luma[y * w + x]
           bgCount++
         }
@@ -298,61 +298,119 @@ function detectWithCanvasEdges(
     }
     const bgLuma = bgCount > 0 ? bgSum / bgCount : 128
 
-    const numRays = 16
-    const topPts: { x: number; y: number }[] = []
-    const bottomPts: { x: number; y: number }[] = []
-    const leftPts: { x: number; y: number }[] = []
-    const rightPts: { x: number; y: number }[] = []
+    const numRays = 24
+    const topCandidates: { x: number; y: number; strength: number }[] = []
+    const bottomCandidates: { x: number; y: number; strength: number }[] = []
+    const leftCandidates: { x: number; y: number; strength: number }[] = []
+    const rightCandidates: { x: number; y: number; strength: number }[] = []
 
-    const maxRayDepthY = Math.round(h * 0.42)
-    const maxRayDepthX = Math.round(w * 0.42)
-    const contrastThreshold = 22
+    const minDepthY = Math.max(2, Math.round(h * 0.02))
+    const maxDepthY = Math.round(h * 0.44)
+    const minDepthX = Math.max(2, Math.round(w * 0.02))
+    const maxDepthX = Math.round(w * 0.44)
 
     for (let i = 1; i <= numRays; i++) {
-      const x = Math.round((i / (numRays + 1)) * w)
+      const x = Math.round((i / (numRays + 1)) * (w - 2 * rim) + rim)
 
-      for (let y = borderThickness; y < maxRayDepthY; y++) {
-        const diff = Math.abs(luma[y * w + x] - bgLuma)
-        const grad = Math.abs(luma[(y + 1) * w + x] - luma[(y - 1) * w + x])
-        if (diff > contrastThreshold || grad > 25) {
-          topPts.push({ x, y })
-          break
+      let bestTopY = -1
+      let maxTopScore = 18
+      for (let y = minDepthY; y < maxDepthY; y++) {
+        const cur = luma[y * w + x]
+        const next = luma[(y + 1) * w + x]
+        const prev = luma[(y - 1) * w + x]
+        const grad = Math.abs(next - prev)
+        const contrast = Math.abs(cur - bgLuma)
+        const score = grad * 0.7 + contrast * 0.3
+        if (score > maxTopScore) {
+          maxTopScore = score
+          bestTopY = y
         }
       }
+      if (bestTopY > 0) {
+        topCandidates.push({ x, y: bestTopY, strength: maxTopScore })
+      }
 
-      for (let y = h - 1 - borderThickness; y > h - 1 - maxRayDepthY; y--) {
-        const diff = Math.abs(luma[y * w + x] - bgLuma)
-        const grad = Math.abs(luma[(y - 1) * w + x] - luma[(y + 1) * w + x])
-        if (diff > contrastThreshold || grad > 25) {
-          bottomPts.push({ x, y })
-          break
+      let bestBotY = -1
+      let maxBotScore = 18
+      for (let y = h - 1 - minDepthY; y > h - 1 - maxDepthY; y--) {
+        const cur = luma[y * w + x]
+        const next = luma[(y + 1) * w + x]
+        const prev = luma[(y - 1) * w + x]
+        const grad = Math.abs(next - prev)
+        const contrast = Math.abs(cur - bgLuma)
+        const score = grad * 0.7 + contrast * 0.3
+        if (score > maxBotScore) {
+          maxBotScore = score
+          bestBotY = y
         }
+      }
+      if (bestBotY > 0) {
+        bottomCandidates.push({ x, y: bestBotY, strength: maxBotScore })
       }
     }
 
     for (let i = 1; i <= numRays; i++) {
-      const y = Math.round((i / (numRays + 1)) * h)
+      const y = Math.round((i / (numRays + 1)) * (h - 2 * rim) + rim)
 
-      for (let x = borderThickness; x < maxRayDepthX; x++) {
-        const diff = Math.abs(luma[y * w + x] - bgLuma)
-        const grad = Math.abs(luma[y * w + (x + 1)] - luma[y * w + (x - 1)])
-        if (diff > contrastThreshold || grad > 25) {
-          leftPts.push({ x, y })
-          break
+      let bestLeftX = -1
+      let maxLeftScore = 18
+      for (let x = minDepthX; x < maxDepthX; x++) {
+        const cur = luma[y * w + x]
+        const next = luma[y * w + (x + 1)]
+        const prev = luma[y * w + (x - 1)]
+        const grad = Math.abs(next - prev)
+        const contrast = Math.abs(cur - bgLuma)
+        const score = grad * 0.7 + contrast * 0.3
+        if (score > maxLeftScore) {
+          maxLeftScore = score
+          bestLeftX = x
         }
       }
+      if (bestLeftX > 0) {
+        leftCandidates.push({ x: bestLeftX, y, strength: maxLeftScore })
+      }
 
-      for (let x = w - 1 - borderThickness; x > w - 1 - maxRayDepthX; x--) {
-        const diff = Math.abs(luma[y * w + x] - bgLuma)
-        const grad = Math.abs(luma[y * w + (x - 1)] - luma[y * w + (x + 1)])
-        if (diff > contrastThreshold || grad > 25) {
-          rightPts.push({ x, y })
-          break
+      let bestRightX = -1
+      let maxRightScore = 18
+      for (let x = w - 1 - minDepthX; x > w - 1 - maxDepthX; x--) {
+        const cur = luma[y * w + x]
+        const next = luma[y * w + (x + 1)]
+        const prev = luma[y * w + (x - 1)]
+        const grad = Math.abs(next - prev)
+        const contrast = Math.abs(cur - bgLuma)
+        const score = grad * 0.7 + contrast * 0.3
+        if (score > maxRightScore) {
+          maxRightScore = score
+          bestRightX = x
         }
+      }
+      if (bestRightX > 0) {
+        rightCandidates.push({ x: bestRightX, y, strength: maxRightScore })
       }
     }
 
-    if (topPts.length >= 4 && bottomPts.length >= 4 && leftPts.length >= 4 && rightPts.length >= 4) {
+    const filterHPoints = (pts: { x: number; y: number; strength: number }[]) => {
+      if (pts.length < 4) return pts
+      const sortedY = pts.map(p => p.y).sort((a, b) => a - b)
+      const medianY = sortedY[Math.floor(sortedY.length / 2)]
+      const maxDev = Math.max(6, h * 0.12)
+      return pts.filter(p => Math.abs(p.y - medianY) <= maxDev)
+    }
+
+    const filterVPoints = (pts: { x: number; y: number; strength: number }[]) => {
+      if (pts.length < 4) return pts
+      const sortedX = pts.map(p => p.x).sort((a, b) => a - b)
+      const medianX = sortedX[Math.floor(sortedX.length / 2)]
+      const maxDev = Math.max(6, w * 0.12)
+      return pts.filter(p => Math.abs(p.x - medianX) <= maxDev)
+    }
+
+    const topInliers = filterHPoints(topCandidates)
+    const botInliers = filterHPoints(bottomCandidates)
+    const leftInliers = filterVPoints(leftCandidates)
+    const rightInliers = filterVPoints(rightCandidates)
+
+    if (topInliers.length >= 4 && botInliers.length >= 4 && leftInliers.length >= 4 && rightInliers.length >= 4) {
       const fitHLine = (pts: { x: number; y: number }[]) => {
         let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0
         const n = pts.length
@@ -383,10 +441,10 @@ function detectWithCanvasEdges(
         return { a, b }
       }
 
-      const topL = fitHLine(topPts)
-      const botL = fitHLine(bottomPts)
-      const leftL = fitVLine(leftPts)
-      const rightL = fitVLine(rightPts)
+      const topL = fitHLine(topInliers)
+      const botL = fitHLine(botInliers)
+      const leftL = fitVLine(leftInliers)
+      const rightL = fitVLine(rightInliers)
 
       const intersect = (hLine: { a: number; b: number }, vLine: { a: number; b: number }) => {
         const denom = 1 - hLine.a * vLine.a
@@ -426,8 +484,8 @@ function getHomographyMatrix(src: ScanPoint[], dst: ScanPoint[]): number[] | nul
     const sy = src[i].y
     const dx = dst[i].x
     const dy = dst[i].y
-    a.push([-sx, -sy, -1, 0, 0, 0, sx * dx, sy * dx, dx])
-    a.push([0, 0, 0, -sx, -sy, -1, sx * dy, sy * dy, dy])
+    a.push([sx, sy, 1, 0, 0, 0, -sx * dx, -sy * dx, dx])
+    a.push([0, 0, 0, sx, sy, 1, -sx * dy, -sy * dy, dy])
   }
 
   // Gaussian elimination
@@ -613,19 +671,29 @@ function drawWarpedTriangle(
   ctx.closePath()
   ctx.clip()
 
-  // Solve affine transform matrix for triangle
-  const denom = (s0.x * (s1.y - s2.y) - s1.x * (s0.y - s2.y) + s2.x * (s0.y - s1.y))
-  if (Math.abs(denom) < 1e-6) {
+  // Solve affine transform matrix for triangle mapping s0,s1,s2 -> d0,d1,d2
+  const det = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y)
+  if (Math.abs(det) < 1e-6) {
     ctx.restore()
     return
   }
 
-  const a = (d0.x * (s1.y - s2.y) - d1.x * (s0.y - s2.y) + d2.x * (s0.y - s1.y)) / denom
-  const b = (d0.y * (s1.y - s2.y) - d1.y * (s0.y - s2.y) + d2.y * (s0.y - s1.y)) / denom
-  const c = (s0.x * (d1.x - d2.x) - s1.x * (d0.x - d2.x) + s2.x * (d0.x - d1.x)) / denom
-  const d = (s0.x * (d1.y - d2.y) - s1.x * (d0.y - d2.y) + s2.x * (d0.y - d1.y)) / denom
-  const e = (s0.x * (s1.y * d2.x - s2.y * d1.x) - s1.x * (s0.y * d2.x - s2.y * d0.x) + s2.x * (s0.y * d1.x - s1.y * d0.x)) / denom
-  const f = (s0.x * (s1.y * d2.y - s2.y * d1.y) - s1.x * (s0.y * d2.y - s2.y * d0.y) + s2.x * (s0.y * d1.y - s1.y * d0.y)) / denom
+  const u1 = d1.x - d0.x
+  const u2 = d2.x - d0.x
+  const v1 = d1.y - d0.y
+  const v2 = d2.y - d0.y
+  const dx1 = s1.x - s0.x
+  const dy1 = s1.y - s0.y
+  const dx2 = s2.x - s0.x
+  const dy2 = s2.y - s0.y
+
+  const a = (u1 * dy2 - u2 * dy1) / det
+  const c = (u2 * dx1 - u1 * dx2) / det
+  const e = d0.x - a * s0.x - c * s0.y
+
+  const b = (v1 * dy2 - v2 * dy1) / det
+  const d = (v2 * dx1 - v1 * dx2) / det
+  const f = d0.y - b * s0.x - d * s0.y
 
   ctx.transform(a, b, c, d, e, f)
   ctx.drawImage(srcImg, 0, 0)

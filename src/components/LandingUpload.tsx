@@ -166,11 +166,11 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
             <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-[#565051] group-hover:text-[#0f0b0c] transition-colors" />
           </div>
 
-          <h2 className="text-lg sm:text-xl md:text-2xl font-normal text-[#0f0b0c] mb-1 font-body tracking-tight">
-            Перетащите изображение или документ сюда
-          </h2>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-[#0f0b0c] mb-1 font-body tracking-tight">
+            Редактор фото
+          </h1>
           <p className="text-xs sm:text-sm text-[#565051] max-w-md mb-4 leading-relaxed">
-            Выберите файл из галереи, сделайте снимок на камеру или вставьте из буфера (JPG, PNG, HEIC, Apple ProRAW DNG, TIFF, WebP, AVIF)
+            Перетащите изображение сюда, сделайте снимок на камеру или вставьте из буфера (JPG, PNG, HEIC, Apple ProRAW DNG, TIFF, WebP)
           </p>
 
           <div className="flex items-center gap-2.5">
