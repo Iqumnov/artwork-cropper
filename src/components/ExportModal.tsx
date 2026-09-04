@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Download, Copy, Check, RotateCcw, LayoutTemplate } from 'lucide-react'
+import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ArtworkInfo } from '../types'
 
 interface ExportModalProps {
@@ -11,6 +11,10 @@ interface ExportModalProps {
   artworkTitle?: string
   artworkInfo?: ArtworkInfo
   onUpdateArtworkInfo?: (info: ArtworkInfo) => void
+  queueTotal?: number
+  queueCurrentIndex?: number
+  onNextImage?: () => void
+  onPrevImage?: () => void
 }
 
 function createPostCanvas(
@@ -104,6 +108,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   artworkTitle,
   artworkInfo,
   onUpdateArtworkInfo,
+  queueTotal,
+  queueCurrentIndex,
+  onNextImage,
+  onPrevImage,
 }) => {
   const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg')
   const [quality, setQuality] = useState(0.92)
@@ -239,13 +247,40 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       <div className="bg-[#faf8f8] border border-[#e3dbdc] p-5 sm:p-6 max-w-md w-full shadow-xl flex flex-col gap-3.5 text-[#0f0b0c] max-h-[92vh] overflow-y-auto no-scrollbar">
         {/* Header without additional border */}
         <div className="flex items-center justify-between pb-1">
-          <div>
-            <h3 className="text-base font-normal text-[#0f0b0c] tracking-tight m-0">
-              Экспорт работы
-            </h3>
-            <p className="text-xs text-[#565051] font-mono mt-0.5">
-              {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ~${estimatedSize}` : ''}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div>
+              <h3 className="text-base font-normal text-[#0f0b0c] tracking-tight m-0">
+                Экспорт работы
+              </h3>
+              <p className="text-xs text-[#565051] font-mono mt-0.5">
+                {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ~${estimatedSize}` : ''}
+              </p>
+            </div>
+            {queueTotal && queueTotal > 1 ? (
+              <div className="flex items-center border border-[#34292a] bg-white text-xs select-none shadow-xs ml-1">
+                <button
+                  type="button"
+                  onClick={onPrevImage}
+                  disabled={queueCurrentIndex === 0}
+                  className="w-6 h-6 flex items-center justify-center text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                  title="Предыдущее фото"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+                <span className="px-1.5 font-mono font-medium text-xs text-[#0f0b0c] whitespace-nowrap">
+                  {(queueCurrentIndex ?? 0) + 1} / {queueTotal}
+                </span>
+                <button
+                  type="button"
+                  onClick={onNextImage}
+                  disabled={queueCurrentIndex === queueTotal - 1}
+                  className="w-6 h-6 flex items-center justify-center text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                  title="Следующее фото"
+                >
+                  <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              </div>
+            ) : null}
           </div>
           <button
             onClick={onClose}

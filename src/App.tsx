@@ -3,6 +3,7 @@ import { LandingUpload } from './components/LandingUpload'
 import { EditorView } from './components/EditorView'
 import { LightroomAdjustments, EditorTab, ScanPoint, CropArea, ArtworkInfo, ImageQueueItem } from './types'
 import { getEditorSession, clearEditorSession, EditorSessionData } from './lib/history-storage'
+import { loadAnyImageFile } from './lib/image-loader'
 
 export function App() {
   const [imageQueue, setImageQueue] = useState<ImageQueueItem[]>([])
@@ -113,6 +114,29 @@ export function App() {
     }
   }, [imageQueue, currentQueueIndex])
 
+  const handleAddImages = useCallback(async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return
+    try {
+      const newItems: ImageQueueItem[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const res = await loadAnyImageFile(file)
+        if (res && res.dataUrl) {
+          newItems.push({
+            id: `art_${Date.now()}_${i}`,
+            url: res.dataUrl,
+            fileName: file.name
+          })
+        }
+      }
+      if (newItems.length > 0) {
+        setImageQueue(prev => [...prev, ...newItems])
+      }
+    } catch (e) {
+      console.error('Failed to add images to queue:', e)
+    }
+  }, [])
+
   const handleBack = async () => {
     await clearEditorSession()
     setSessionData(null)
@@ -148,6 +172,7 @@ export function App() {
           queueCurrentIndex={currentQueueIndex}
           onNextImage={handleNextImage}
           onPrevImage={handlePrevImage}
+          onAddImages={handleAddImages}
           onBack={handleBack}
         />
       ) : (

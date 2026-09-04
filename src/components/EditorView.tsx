@@ -8,7 +8,8 @@ import {
   Eye,
   Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react'
 import {
   LightroomAdjustments,
@@ -51,6 +52,7 @@ interface EditorViewProps {
   queueCurrentIndex?: number
   onNextImage?: () => void
   onPrevImage?: () => void
+  onAddImages?: (files: FileList | File[]) => void
   onBack: () => void
 }
 
@@ -69,6 +71,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   queueCurrentIndex,
   onNextImage,
   onPrevImage,
+  onAddImages,
   onBack
 }) => {
   const [artworkId, setArtworkId] = useState(initialArtworkId || `art_${Date.now()}`)
@@ -107,9 +110,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [activeTab, setActiveTab] = useState<EditorTab>(initialTab || 'crop')
   const [drawerHeight, setDrawerHeight] = useState(initialDrawerHeight || 270)
 
-  // Cropping State
+  // Cropping State & Extreme Pixel Sensitivity
   const [cropMode, setCropMode] = useState<'scan' | 'fixed'>(initialCropMode || 'scan')
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatio>(ASPECT_RATIOS[0])
+  const [isExtremePrecision, setIsExtremePrecision] = useState(false)
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null)
   const [scanPoints, setScanPoints] = useState<ScanPoint[]>(
     initialScanPoints && initialScanPoints.length === 4
       ? initialScanPoints
@@ -138,9 +143,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
     | { type: 'fixed-box' }
     | null
   >(null)
-  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const [scanPointsStart, setScanPointsStart] = useState<ScanPoint[]>([])
-  const [fixedCropStart, setFixedCropStart] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 })
 
   // Sniper Loupe state (Magnifying Glass, NO red dot)
   const [loupe, setLoupe] = useState<{
@@ -178,8 +180,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const loupeCanvasRef = useRef<HTMLCanvasElement>(null)
-  const exportCompletedRef = useRef(false)
   const lastClientPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const dragScanPointsRef = useRef<ScanPoint[]>([])
+  const dragFixedCropRef = useRef<CropArea>({ x: 0, y: 0, width: 0, height: 0 })
+  const addFilesRef = useRef<HTMLInputElement>(null)
 
   const startDragging = (
     target: typeof draggingTarget,
@@ -187,13 +191,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
     clientY: number
   ) => {
     setDraggingTarget(target)
-    setDragStartPos({ x: clientX, y: clientY })
-    lastClientPosRef.current = { x: clientX, y: clientY }
-    if (target?.type === 'scan-point' || target?.type === 'scan-side') {
-      setScanPointsStart([...scanPoints])
-    } else if (target && target.type.startsWith('fixed')) {
-      setFixedCropStart({ ...fixedCropArea })
+    if (target?.type === 'scan-point') {
+      setSelectedPointIndex(target.index)
     }
+    lastClientPosRef.current = { x: clientX, y: clientY }
+    dragScanPointsRef.current = scanPoints.map(p => ({ x: p.x, y: p.y }))
+    dragFixedCropRef.current = { ...fixedCropArea }
   }
 
   const loadHistory = async () => {
@@ -581,11 +584,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
     saveSnapshotToHistory()
 
-    // Auto-advance to next image in queue if available
+    // Auto-advance to next image in queue immediately RIGHT as download is clicked!
     if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
-      setTimeout(() => {
-        onNextImage()
-      }, 350)
+      onNextImage()
     }
   }
 
@@ -876,7 +877,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     lastClientPosRef.current = { x: clientX, y: clientY }
   }
 
-  const handlePointerMove = (clientX: number, clientY: number) => {
+  const handlePointerMove = (clientX: number, clientY: number, e?: { shiftKey?: boolean; altKey?: boolean }) => {
     if (!baseImage) return
     const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
@@ -891,184 +892,188 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (!draggingTarget) return
 
     const prevClient = lastClientPosRef.current
-    const stepDist = Math.hypot(clientX - prevClient.x, clientY - prevClient.y)
+    const stepX = clientX - prevClient.x
+    const stepY = clientY - prevClient.y
     lastClientPosRef.current = { x: clientX, y: clientY }
 
-    const rawDx = clientX - dragStartPos.x
-    const rawDy = clientY - dragStartPos.y
-    const totalDist = Math.hypot(rawDx, rawDy)
+    const stepDist = Math.hypot(stepX, stepY)
+    if (stepDist === 0) return
 
-    // Dynamic re-anchoring: if user dragged far (>24px) and then slows down to make micro-adjustments (<2.5px step)
-    let curStartPos = dragStartPos
-    if (totalDist > 24 && stepDist < 2.5) {
-      curStartPos = { x: clientX, y: clientY }
-      setDragStartPos(curStartPos)
-      if (draggingTarget.type === 'scan-point' || draggingTarget.type === 'scan-side') {
-        setScanPointsStart([...scanPoints])
-      } else if (draggingTarget.type.startsWith('fixed')) {
-        setFixedCropStart({ ...fixedCropArea })
+    // Continuous Velocity & Extreme Precision:
+    // Completely eliminates flinch/discontinuity because coordinates accumulate smoothly in ref
+    const isShiftOrAlt = e?.shiftKey || e?.altKey
+    const extremeActive = isExtremePrecision || isShiftOrAlt
+
+    let s = 1.0
+    if (extremeActive) {
+      s = 0.10 // Extreme sub-pixel precision (10x sensitivity reduction for pixel-by-pixel alignment)
+    } else {
+      if (stepDist <= 1.5) {
+        s = 0.15 // Micro-precision damping when moving slowly
+      } else if (stepDist < 6.0) {
+        const t = (stepDist - 1.5) / 4.5
+        const smoothT = t * t * (3 - 2 * t)
+        s = 0.15 + 0.85 * smoothT
+      } else {
+        s = 1.0 // Full 1:1 speed for swift drags
       }
     }
 
-    const effectiveDx = clientX - curStartPos.x
-    const effectiveDy = clientY - curStartPos.y
-    const effectiveDist = Math.hypot(effectiveDx, effectiveDy)
-
-    // Adaptive micro-adjustment sensitivity:
-    // When making tiny adjustments (dist < 24px), smooth damping (0.35x - 0.5x) eliminates jumpiness and loupe jitter.
-    // When making deliberate fast drags (dist >= 24px), full 1.0x speed ensures zero drag lag.
-    const microDamping = effectiveDist < 24 ? 0.35 + 0.65 * (effectiveDist / 24) : 1.0
-
-    // Delta in natural image pixels
-    const deltaImgX = (effectiveDx * microDamping) / zoom
-    const deltaImgY = (effectiveDy * microDamping) / zoom
+    const deltaImgX = (stepX * s) / zoom
+    const deltaImgY = (stepY * s) / zoom
 
     if (draggingTarget.type === 'scan-point') {
       const idx = draggingTarget.index
-      const initialPt = scanPointsStart[idx]
-      const newX = Math.max(0, Math.min(imgW, Math.round(initialPt.x + deltaImgX)))
-      const newY = Math.max(0, Math.min(imgH, Math.round(initialPt.y + deltaImgY)))
+      const curPts = dragScanPointsRef.current
+      if (!curPts[idx]) return
 
-      setScanPoints(prev => {
-        const next = [...prev]
-        next[idx] = { x: newX, y: newY }
-        return next
-      })
+      curPts[idx].x = Math.max(0, Math.min(imgW, curPts[idx].x + deltaImgX))
+      curPts[idx].y = Math.max(0, Math.min(imgH, curPts[idx].y + deltaImgY))
 
-      // Update sniper loupe
+      const roundedX = Math.round(curPts[idx].x)
+      const roundedY = Math.round(curPts[idx].y)
+
+      setScanPoints(curPts.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })))
+
       setLoupe({
         visible: true,
         screenX: clientX,
         screenY: clientY,
-        imgX: newX,
-        imgY: newY
+        imgX: roundedX,
+        imgY: roundedY
       })
     } else if (draggingTarget.type === 'scan-side') {
       const idx = draggingTarget.index
       const nextIdx = (idx + 1) % 4
-      const p1 = scanPointsStart[idx]
-      const p2 = scanPointsStart[nextIdx]
+      const curPts = dragScanPointsRef.current
+      if (!curPts[idx] || !curPts[nextIdx]) return
 
-      const newP1X = Math.max(0, Math.min(imgW, Math.round(p1.x + deltaImgX)))
-      const newP1Y = Math.max(0, Math.min(imgH, Math.round(p1.y + deltaImgY)))
-      const newP2X = Math.max(0, Math.min(imgW, Math.round(p2.x + deltaImgX)))
-      const newP2Y = Math.max(0, Math.min(imgH, Math.round(p2.y + deltaImgY)))
+      curPts[idx].x = Math.max(0, Math.min(imgW, curPts[idx].x + deltaImgX))
+      curPts[idx].y = Math.max(0, Math.min(imgH, curPts[idx].y + deltaImgY))
+      curPts[nextIdx].x = Math.max(0, Math.min(imgW, curPts[nextIdx].x + deltaImgX))
+      curPts[nextIdx].y = Math.max(0, Math.min(imgH, curPts[nextIdx].y + deltaImgY))
 
-      setScanPoints(prev => {
-        const next = [...prev]
-        next[idx] = { x: newP1X, y: newP1Y }
-        next[nextIdx] = { x: newP2X, y: newP2Y }
-        return next
-      })
+      setScanPoints(curPts.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })))
 
       setLoupe({
         visible: true,
         screenX: clientX,
         screenY: clientY,
-        imgX: (newP1X + newP2X) / 2,
-        imgY: (newP1Y + newP2Y) / 2
+        imgX: Math.round((curPts[idx].x + curPts[nextIdx].x) / 2),
+        imgY: Math.round((curPts[idx].y + curPts[nextIdx].y) / 2)
       })
     } else if (draggingTarget.type === 'fixed-corner') {
       const corner = draggingTarget.corner
-      const start = fixedCropStart
-      let newX = start.x
-      let newY = start.y
-      let newW = start.width
-      let newH = start.height
+      const cur = dragFixedCropRef.current
 
       if (corner === 'br') {
-        newW = Math.max(40, Math.min(imgW - start.x, start.width + deltaImgX))
-        newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : Math.max(40, Math.min(imgH - start.y, start.height + deltaImgY))
+        const newW = Math.max(40, Math.min(imgW - cur.x, cur.width + deltaImgX))
+        const newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : Math.max(40, Math.min(imgH - cur.y, cur.height + deltaImgY))
+        cur.width = newW
+        cur.height = newH
       } else if (corner === 'tl') {
-        const targetX = Math.max(0, Math.min(start.x + start.width - 40, start.x + deltaImgX))
-        const targetY = Math.max(0, Math.min(start.y + start.height - 40, start.y + deltaImgY))
-        newW = start.x + start.width - targetX
-        newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : start.y + start.height - targetY
-        newX = targetX
-        newY = targetY
+        const targetX = Math.max(0, Math.min(cur.x + cur.width - 40, cur.x + deltaImgX))
+        const targetY = Math.max(0, Math.min(cur.y + cur.height - 40, cur.y + deltaImgY))
+        const newW = cur.x + cur.width - targetX
+        const newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : cur.y + cur.height - targetY
+        cur.x = targetX
+        cur.y = targetY
+        cur.width = newW
+        cur.height = newH
       } else if (corner === 'tr') {
-        newW = Math.max(40, Math.min(imgW - start.x, start.width + deltaImgX))
-        const targetY = Math.max(0, Math.min(start.y + start.height - 40, start.y + deltaImgY))
-        newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : start.y + start.height - targetY
-        newY = targetY
+        const newW = Math.max(40, Math.min(imgW - cur.x, cur.width + deltaImgX))
+        const targetY = Math.max(0, Math.min(cur.y + cur.height - 40, cur.y + deltaImgY))
+        const newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : cur.y + cur.height - targetY
+        cur.width = newW
+        cur.y = targetY
+        cur.height = newH
       } else if (corner === 'bl') {
-        const targetX = Math.max(0, Math.min(start.x + start.width - 40, start.x + deltaImgX))
-        newW = start.x + start.width - targetX
-        newX = targetX
-        newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : Math.max(40, Math.min(imgH - start.y, start.height + deltaImgY))
+        const targetX = Math.max(0, Math.min(cur.x + cur.width - 40, cur.x + deltaImgX))
+        const newW = cur.x + cur.width - targetX
+        const newH = selectedAspectRatio.ratio > 0 ? newW / selectedAspectRatio.ratio : Math.max(40, Math.min(imgH - cur.y, cur.height + deltaImgY))
+        cur.x = targetX
+        cur.width = newW
+        cur.height = newH
       }
 
-      setFixedCropArea({ x: Math.round(newX), y: Math.round(newY), width: Math.round(newW), height: Math.round(newH) })
+      setFixedCropArea({
+        x: Math.round(cur.x),
+        y: Math.round(cur.y),
+        width: Math.round(cur.width),
+        height: Math.round(cur.height)
+      })
 
-      // Active sniper loupe on corner
-      const cornerImgX = corner === 'tl' || corner === 'bl' ? newX : newX + newW
-      const cornerImgY = corner === 'tl' || corner === 'tr' ? newY : newY + newH
+      const cornerImgX = corner === 'tl' || corner === 'bl' ? cur.x : cur.x + cur.width
+      const cornerImgY = corner === 'tl' || corner === 'tr' ? cur.y : cur.y + cur.height
       setLoupe({
         visible: true,
         screenX: clientX,
         screenY: clientY,
-        imgX: cornerImgX,
-        imgY: cornerImgY
+        imgX: Math.round(cornerImgX),
+        imgY: Math.round(cornerImgY)
       })
     } else if (draggingTarget.type === 'fixed-side') {
       const side = draggingTarget.side
-      const start = fixedCropStart
-      let newX = start.x
-      let newY = start.y
-      let newW = start.width
-      let newH = start.height
+      const cur = dragFixedCropRef.current
 
       if (side === 'top') {
-        const targetY = Math.max(0, Math.min(start.y + start.height - 40, start.y + deltaImgY))
-        newY = targetY
-        newH = start.y + start.height - targetY
+        const targetY = Math.max(0, Math.min(cur.y + cur.height - 40, cur.y + deltaImgY))
+        cur.height = cur.y + cur.height - targetY
+        cur.y = targetY
         if (selectedAspectRatio.ratio > 0) {
-          newW = Math.min(imgW, Math.round(newH * selectedAspectRatio.ratio))
-          newX = Math.max(0, Math.min(imgW - newW, Math.round(start.x + (start.width - newW) / 2)))
+          cur.width = Math.min(imgW, cur.height * selectedAspectRatio.ratio)
+          cur.x = Math.max(0, Math.min(imgW - cur.width, cur.x + (cur.width - cur.width) / 2))
         }
       } else if (side === 'bottom') {
-        newH = Math.max(40, Math.min(imgH - start.y, start.height + deltaImgY))
+        cur.height = Math.max(40, Math.min(imgH - cur.y, cur.height + deltaImgY))
         if (selectedAspectRatio.ratio > 0) {
-          newW = Math.min(imgW, Math.round(newH * selectedAspectRatio.ratio))
-          newX = Math.max(0, Math.min(imgW - newW, Math.round(start.x + (start.width - newW) / 2)))
+          cur.width = Math.min(imgW, cur.height * selectedAspectRatio.ratio)
         }
       } else if (side === 'left') {
-        const targetX = Math.max(0, Math.min(start.x + start.width - 40, start.x + deltaImgX))
-        newX = targetX
-        newW = start.x + start.width - targetX
+        const targetX = Math.max(0, Math.min(cur.x + cur.width - 40, cur.x + deltaImgX))
+        cur.width = cur.x + cur.width - targetX
+        cur.x = targetX
         if (selectedAspectRatio.ratio > 0) {
-          newH = Math.min(imgH, Math.round(newW / selectedAspectRatio.ratio))
-          newY = Math.max(0, Math.min(imgH - newH, Math.round(start.y + (start.height - newH) / 2)))
+          cur.height = Math.min(imgH, cur.width / selectedAspectRatio.ratio)
         }
       } else if (side === 'right') {
-        newW = Math.max(40, Math.min(imgW - start.x, start.width + deltaImgX))
+        cur.width = Math.max(40, Math.min(imgW - cur.x, cur.width + deltaImgX))
         if (selectedAspectRatio.ratio > 0) {
-          newH = Math.min(imgH, Math.round(newW / selectedAspectRatio.ratio))
-          newY = Math.max(0, Math.min(imgH - newH, Math.round(start.y + (start.height - newH) / 2)))
+          cur.height = Math.min(imgH, cur.width / selectedAspectRatio.ratio)
         }
       }
 
-      setFixedCropArea({ x: Math.round(newX), y: Math.round(newY), width: Math.round(newW), height: Math.round(newH) })
+      setFixedCropArea({
+        x: Math.round(cur.x),
+        y: Math.round(cur.y),
+        width: Math.round(cur.width),
+        height: Math.round(cur.height)
+      })
 
-      let sideImgX = newX + newW / 2
-      let sideImgY = newY + newH / 2
-      if (side === 'top') sideImgY = newY
-      else if (side === 'bottom') sideImgY = newY + newH
-      else if (side === 'left') sideImgX = newX
-      else if (side === 'right') sideImgX = newX + newW
+      let sideImgX = cur.x + cur.width / 2
+      let sideImgY = cur.y + cur.height / 2
+      if (side === 'top') sideImgY = cur.y
+      else if (side === 'bottom') sideImgY = cur.y + cur.height
+      else if (side === 'left') sideImgX = cur.x
+      else if (side === 'right') sideImgX = cur.x + cur.width
 
       setLoupe({
         visible: true,
         screenX: clientX,
         screenY: clientY,
-        imgX: sideImgX,
-        imgY: sideImgY
+        imgX: Math.round(sideImgX),
+        imgY: Math.round(sideImgY)
       })
     } else if (draggingTarget.type === 'fixed-box') {
-      const start = fixedCropStart
-      const newX = Math.max(0, Math.min(imgW - start.width, Math.round(start.x + deltaImgX)))
-      const newY = Math.max(0, Math.min(imgH - start.height, Math.round(start.y + deltaImgY)))
-      setFixedCropArea(prev => ({ ...prev, x: newX, y: newY }))
+      const cur = dragFixedCropRef.current
+      cur.x = Math.max(0, Math.min(imgW - cur.width, cur.x + deltaImgX))
+      cur.y = Math.max(0, Math.min(imgH - cur.height, cur.y + deltaImgY))
+      setFixedCropArea({
+        x: Math.round(cur.x),
+        y: Math.round(cur.y),
+        width: Math.round(cur.width),
+        height: Math.round(cur.height)
+      })
     }
   }
 
@@ -1077,6 +1082,70 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setDraggingTarget(null)
     setLoupe(null)
   }
+
+  // Window-level pointer tracking during active drag: prevents dropped events outside viewport
+  useEffect(() => {
+    if (!draggingTarget && !isPanning) return
+    const handleWinMove = (e: MouseEvent) => {
+      handlePointerMove(e.clientX, e.clientY, e)
+    }
+    const handleWinUp = () => {
+      handlePointerUp()
+    }
+    window.addEventListener('mousemove', handleWinMove)
+    window.addEventListener('mouseup', handleWinUp)
+    return () => {
+      window.removeEventListener('mousemove', handleWinMove)
+      window.removeEventListener('mouseup', handleWinUp)
+    }
+  }, [draggingTarget, isPanning, handlePointerMove, handlePointerUp])
+
+  // Keyboard Arrow Nudging for Extreme Pixel Precision
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!baseImage || activeTab !== 'crop') return
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (cropMode === 'scan' && selectedPointIndex !== null && selectedPointIndex >= 0 && selectedPointIndex < 4) {
+          e.preventDefault()
+          const step = e.shiftKey ? 5 : 1
+          const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+          const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+          setScanPoints(prev => {
+            const next = [...prev]
+            const pt = { ...next[selectedPointIndex] }
+            if (e.key === 'ArrowLeft') pt.x = Math.max(0, pt.x - step)
+            if (e.key === 'ArrowRight') pt.x = Math.min(imgW, pt.x + step)
+            if (e.key === 'ArrowUp') pt.y = Math.max(0, pt.y - step)
+            if (e.key === 'ArrowDown') pt.y = Math.min(imgH, pt.y + step)
+            next[selectedPointIndex] = pt
+            return next
+          })
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [baseImage, activeTab, cropMode, selectedPointIndex])
+
+  // Window paste listener to append clipboard images directly to the queue
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      const files: File[] = []
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile()
+          if (file) files.push(file)
+        }
+      }
+      if (files.length > 0 && onAddImages) {
+        onAddImages(files)
+      }
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [onAddImages])
 
   // Global and Viewport Wheel/Pinch Protection: prevents browser UI zoom
   useEffect(() => {
@@ -1137,18 +1206,43 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const h = baseImage ? (baseImage as HTMLImageElement).naturalHeight || baseImage.height : 0
 
   return (
-    <div className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] select-none relative">
+    <div
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && onAddImages) {
+          onAddImages(e.dataTransfer.files)
+        }
+      }}
+      className="h-full w-full flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] select-none relative"
+    >
+      {/* Hidden File Input for Adding Images to Batch Queue */}
+      <input
+        ref={addFilesRef}
+        type="file"
+        multiple
+        accept="image/*,.heic,.heif,.dng,.tiff,.tif,.avif,.webp,.png,.jpg,.jpeg,.bmp"
+        onChange={(e) => {
+          if (e.target.files && onAddImages) {
+            onAddImages(e.target.files)
+          }
+          e.target.value = ''
+        }}
+        className="hidden"
+      />
+
       {/* Top App Bar — strictly icon-only buttons with shrink protection */}
-      <header className="flex items-center justify-between px-3 py-2 z-30 border-b border-[#e3dbdc] bg-[#faf8f8] shrink-0 gap-1.5 min-w-0">
-        {/* Left: Back & History */}
-        <div className="flex items-center gap-1.5 shrink-0">
+      <header className="flex items-center justify-between px-2 sm:px-3 py-2 z-30 border-b border-[#e3dbdc] bg-[#faf8f8] shrink-0 gap-1 sm:gap-1.5 min-w-0">
+        {/* Left: Back & History & Queue Controller */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <button
             onClick={async () => {
               saveSnapshotToHistory()
               await clearEditorSession()
               onBack()
             }}
-            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
             title="Назад"
           >
             <ArrowLeft className="w-4 h-4 text-[#565051]" />
@@ -1156,7 +1250,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
           <button
             onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-            className={`w-8 h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
+            className={`w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
               showHistoryDrawer
                 ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
                 : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
@@ -1166,38 +1260,54 @@ export const EditorView: React.FC<EditorViewProps> = ({
             <Clock className="w-4 h-4" />
           </button>
 
-          {/* Multi-image queue pagination < x / N > */}
+          {/* Multi-image queue pagination < x / N > [+] */}
           {queueTotal && queueTotal > 1 ? (
-            <div className="flex items-center border border-[#e3dbdc] bg-white text-xs select-none">
+            <div className="flex items-center border border-[#0f0b0c] bg-white text-xs select-none shadow-xs shrink-0">
               <button
                 onClick={onPrevImage}
                 disabled={queueCurrentIndex === 0}
-                className="w-7 h-7 flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                className="w-6 sm:w-7 h-7 flex items-center justify-center text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
                 title="Предыдущее фото"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
-              <span className="px-1.5 font-mono text-xs text-[#0f0b0c] whitespace-nowrap">
+              <span className="px-1.5 sm:px-2 font-mono font-medium text-xs text-[#0f0b0c] whitespace-nowrap">
                 {(queueCurrentIndex ?? 0) + 1} / {queueTotal}
               </span>
               <button
                 onClick={onNextImage}
                 disabled={queueCurrentIndex === queueTotal - 1}
-                className="w-7 h-7 flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                className="w-6 sm:w-7 h-7 flex items-center justify-center text-[#0f0b0c] hover:bg-[#faf8f8] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
                 title="Следующее фото"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </button>
+              <button
+                onClick={() => addFilesRef.current?.click()}
+                className="w-6 sm:w-7 h-7 border-l border-[#e3dbdc] flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] hover:bg-[#faf8f8] transition-colors"
+                title="Добавить ещё фото в очередь"
+              >
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
-          ) : null}
+          ) : (
+            <button
+              onClick={() => addFilesRef.current?.click()}
+              className="h-7 sm:h-8 px-1.5 sm:px-2 border border-[#e3dbdc] hover:border-[#34292a] bg-white text-[#565051] hover:text-[#0f0b0c] flex items-center gap-1 text-xs transition-colors cursor-pointer shrink-0"
+              title="Добавить фото для пакетной серии"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[11px] font-normal">Пакет</span>
+            </button>
+          )}
         </div>
 
         {/* Center: Undo, Redo, Before/After */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <button
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Отменить"
           >
             <Undo2 className="w-3.5 h-3.5 text-[#565051]" />
@@ -1205,7 +1315,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] disabled:opacity-30 transition-colors cursor-pointer"
             title="Повторить"
           >
             <Redo2 className="w-3.5 h-3.5 text-[#565051]" />
@@ -1217,7 +1327,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
             onMouseLeave={() => setShowBefore(false)}
             onTouchStart={() => setShowBefore(true)}
             onTouchEnd={() => setShowBefore(false)}
-            className={`w-8 h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
+            className={`w-7 h-7 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center border transition-colors cursor-pointer ${
               showBefore
                 ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
                 : 'bg-transparent border-[#e3dbdc] hover:border-[#34292a] text-[#565051]'
@@ -1229,11 +1339,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
 
         {/* Right: Mode Toggles, Direct Download & Export */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* View on Wall Button */}
           <button
             onClick={handleOpenWallView}
-            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
+            className="hidden sm:flex w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
             title="Примерка на стене"
           >
             <img
@@ -1245,18 +1355,18 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
           <button
             onClick={handleDirectDownload}
-            className="w-8 h-8 shrink-0 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
-            title="Скачать файл"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
+            title="Быстрое скачивание (переход к след. фото)"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
           <button
             onClick={handleOpenExportModal}
-            className="w-8 h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
             title="Параметры экспорта"
           >
-            <Share2 className="w-4 h-4 text-[#565051]" />
+            <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#565051]" />
           </button>
         </div>
       </header>
@@ -1620,6 +1730,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
           }}
         >
           <canvas ref={loupeCanvasRef} width={110} height={110} className="w-full h-full block" />
+          {isExtremePrecision && (
+            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-[#0f0b0c]/90 text-[#faf8f8] text-[9px] font-mono px-1.5 py-0.5 rounded-full border border-white/20 uppercase tracking-wider whitespace-nowrap">
+              0.1× Пиксель
+            </div>
+          )}
         </div>
       )}
 
@@ -1645,31 +1760,31 @@ export const EditorView: React.FC<EditorViewProps> = ({
           onApplyCrop={handleApplyCrop}
           drawerHeight={drawerHeight}
           onDrawerHeightChange={setDrawerHeight}
+          isExtremePrecision={isExtremePrecision}
+          onToggleExtremePrecision={() => setIsExtremePrecision(prev => !prev)}
         />
       </div>
 
       {/* Export Modal (Supports direct export and Export as Post 3:4) */}
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => {
-          setShowExportModal(false)
-          if (exportCompletedRef.current) {
-            exportCompletedRef.current = false
-            if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
-              setTimeout(() => {
-                onNextImage()
-              }, 250)
-            }
-          }
-        }}
+        onClose={() => setShowExportModal(false)}
         onExportComplete={() => {
-          exportCompletedRef.current = true
+          setShowExportModal(false)
+          // Immediate synchronous auto-advance RIGHT as download is clicked!
+          if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
+            onNextImage()
+          }
         }}
         canvas={canvasRef.current}
         originalFileName={fileName}
         artworkTitle={artworkInfo.title}
         artworkInfo={artworkInfo}
         onUpdateArtworkInfo={setArtworkInfo}
+        queueTotal={queueTotal}
+        queueCurrentIndex={queueCurrentIndex}
+        onNextImage={onNextImage}
+        onPrevImage={onPrevImage}
       />
 
       {/* Wall View Modal (Interactive AR / Wall preview from ourdynasty) */}

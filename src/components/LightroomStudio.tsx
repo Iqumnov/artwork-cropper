@@ -13,7 +13,8 @@ import {
   FlipVertical,
   Plus,
   Trash2,
-  Check
+  Check,
+  Crosshair
 } from 'lucide-react'
 import {
   LightroomAdjustments,
@@ -55,6 +56,10 @@ interface LightroomStudioProps {
   // Performance callbacks for zero-lag slider dragging
   onSliderDragStart?: () => void
   onSliderDragEnd?: () => void
+
+  // Extreme pixel precision mode
+  isExtremePrecision?: boolean
+  onToggleExtremePrecision?: () => void
 }
 
 export const SliderDragContext = React.createContext<{
@@ -81,7 +86,9 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
   onFlipV,
   onApplyCrop,
   drawerHeight,
-  onDrawerHeightChange
+  onDrawerHeightChange,
+  isExtremePrecision,
+  onToggleExtremePrecision
 }) => {
   const [selectedHslChannel, setSelectedHslChannel] = useState<ColorChannel>('red')
   const [selectedCurveChannel, setSelectedCurveChannel] = useState<'rgb' | 'red' | 'green' | 'blue'>('rgb')
@@ -349,10 +356,10 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
             {/* Perspective mode tools */}
             {cropMode === 'scan' && (
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     onClick={onAutoDetectCrop}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-[#565051]" />
                     <span>Авто</span>
@@ -360,10 +367,23 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
 
                   <button
                     onClick={onResetCropPoints}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-[#565051]" />
                     <span>Сброс</span>
+                  </button>
+
+                  <button
+                    onClick={onToggleExtremePrecision}
+                    className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 border text-xs font-normal transition-colors cursor-pointer ${
+                      isExtremePrecision
+                        ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                        : 'bg-white border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c]'
+                    }`}
+                    title="Субпиксельная сверхточность 0.1x (или удерживайте Shift / стрелки клавиатуры)"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span>0.1× Точность</span>
                   </button>
                 </div>
 
@@ -414,6 +434,18 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={onToggleExtremePrecision}
+                    className={`flex items-center gap-1 px-2 py-1 border text-xs font-normal transition-colors cursor-pointer shrink-0 ${
+                      isExtremePrecision
+                        ? 'bg-[#0f0b0c] text-[#faf8f8] border-[#0f0b0c]'
+                        : 'bg-white border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c]'
+                    }`}
+                    title="Субпиксельная сверхточность 0.1x"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">0.1×</span>
+                  </button>
                   <button
                     onClick={onResetCropPoints}
                     className="flex items-center gap-1 px-2.5 py-1 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer shrink-0"
