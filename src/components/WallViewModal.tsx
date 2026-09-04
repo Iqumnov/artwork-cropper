@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import PerspT from 'perspective-transform'
+import { getPerspectiveMatrix3D } from '../lib/perspective-matrix'
 import {
   WALL_SLIDER_TRACK_FILL,
   WALL_SLIDER_TRACK_REST,
@@ -108,16 +108,10 @@ export const WallViewModal: React.FC<WallViewModalProps> = ({
     ]
 
     try {
-      const transform = PerspT(srcPts, dstPts)
-      const c = transform.coeffs
-      const matrix = [
-        c[0], c[3], 0, c[6],
-        c[1], c[4], 0, c[7],
-        0, 0, 1, 0,
-        c[2], c[5], 0, 1,
-      ]
-        .map((n) => n.toFixed(6))
-        .join(', ')
+      const matrix = getPerspectiveMatrix3D(
+        srcPts as [number, number, number, number, number, number, number, number],
+        dstPts as [number, number, number, number, number, number, number, number]
+      )
       setMatrix3dString(matrix)
     } catch (e) {
       console.error('Error calculating perspective matrix:', e)

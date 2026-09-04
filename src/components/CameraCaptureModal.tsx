@@ -46,7 +46,7 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
       }
     } catch (e: any) {
       console.error('Camera access error:', e)
-      setError('Unable to access camera. Please check permissions.')
+      setError('Не удалось подключиться к камере. Проверьте разрешения.')
     }
   }
 
@@ -94,10 +94,11 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
     <div className="fixed inset-0 z-[100] bg-[#faf8f8] flex flex-col justify-between overflow-hidden text-[#0f0b0c]">
       {/* Top Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#e3dbdc] bg-[#faf8f8] z-10">
-        <span className="text-xs font-normal tracking-wider uppercase text-[#565051]">Scan Artwork / Document</span>
+        <span className="text-xs font-normal tracking-wider uppercase text-[#565051]">Снимок камерой</span>
         <button
           onClick={onClose}
           className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
+          title="Закрыть"
         >
           <X className="w-4 h-4 text-[#565051]" />
         </button>
@@ -108,7 +109,7 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
         {error ? (
           <div className="p-6 text-center text-red-400 text-sm">{error}</div>
         ) : capturedUrl ? (
-          <img src={capturedUrl} alt="Captured" className="max-h-full max-w-full object-contain" />
+          <img src={capturedUrl} alt="Снимок" className="max-h-full max-w-full object-contain" />
         ) : (
           <>
             <video
@@ -120,7 +121,7 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
             />
             {/* Alignment Box */}
             <div className="absolute inset-8 border border-[#e3dbdc]/40 pointer-events-none flex items-center justify-center">
-              <span className="text-[11px] text-white/50 tracking-wider uppercase">Align artwork within frame</span>
+              <span className="text-[11px] text-white/50 tracking-wider uppercase">Поместите работу в рамку</span>
             </div>
           </>
         )}
@@ -135,14 +136,14 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
               className="px-4 py-2 border border-[#e3dbdc] hover:border-[#34292a] text-xs font-normal text-[#0f0b0c] flex items-center gap-1.5 transition-colors cursor-pointer bg-white"
             >
               <RefreshCw className="w-3.5 h-3.5 text-[#565051]" />
-              <span>Retake</span>
+              <span>Переснять</span>
             </button>
             <button
               onClick={handleConfirm}
               className="px-5 py-2 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>Use Photo</span>
+              <span>Использовать</span>
             </button>
           </div>
         ) : (
@@ -150,7 +151,7 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
             <button
               onClick={handleToggleFacingMode}
               className="w-10 h-10 border border-[#e3dbdc] hover:border-[#34292a] bg-white flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
-              title="Flip camera"
+              title="Сменить камеру"
             >
               <RefreshCw className="w-4 h-4 text-[#565051]" />
             </button>
@@ -159,7 +160,7 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
             <button
               onClick={handleTakeSnapshot}
               className="w-14 h-14 border-2 border-[#0f0b0c] bg-white hover:bg-[#34292a] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              title="Take Photo"
+              title="Сделать снимок"
             >
               <Camera className="w-5 h-5 text-[#0f0b0c]" />
             </button>

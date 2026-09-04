@@ -83,15 +83,22 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [modalImageSrc, setModalImageSrc] = useState<string>('')
 
   const handleOpenPostMode = () => {
+    renderCanvas(false)
     const src = canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl
     setModalImageSrc(src)
     setIsPostModeOpen(true)
   }
 
   const handleOpenWallView = () => {
+    renderCanvas(false)
     const src = canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl
     setModalImageSrc(src)
     setIsWallModalOpen(true)
+  }
+
+  const handleOpenExportModal = () => {
+    renderCanvas(false)
+    setShowExportModal(true)
   }
 
   // Drawer & Tabs — defaults to 'crop' (Кадрирование) as requested
@@ -269,32 +276,78 @@ export const EditorView: React.FC<EditorViewProps> = ({
     return () => ro.disconnect()
   }, [baseImage, resetViewport, drawerHeight])
 
-  // Automatically persist session across browser refresh
+  // Fast low-overhead preview buffer for real-time 60 FPS slider dragging
+  const previewSourceRef = useRef<HTMLCanvasElement | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const settleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (!baseImage) {
+      previewSourceRef.current = null
+      return
+    }
+    const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+    const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+    const maxDim = 1280
+
+    if (w > maxDim || h > maxDim) {
+      const scale = maxDim / Math.max(w, h)
+      const pw = Math.round(w * scale)
+      const ph = Math.round(h * scale)
+      const pCanvas = document.createElement('canvas')
+      pCanvas.width = pw
+      pCanvas.height = ph
+      const pCtx = pCanvas.getContext('2d')
+      if (pCtx) {
+        pCtx.imageSmoothingEnabled = true
+        pCtx.imageSmoothingQuality = 'high'
+        pCtx.drawImage(baseImage, 0, 0, pw, ph)
+        previewSourceRef.current = pCanvas
+      }
+    } else {
+      previewSourceRef.current = null
+    }
+  }, [baseImage])
+
+  // Automatically persist session across browser refresh (debounced to avoid blocking slider dragging)
   useEffect(() => {
     if (!initialImageUrl) return
-    saveEditorSession({
-      imageUrl: initialImageUrl,
-      artworkId,
-      adjustments,
-      activeTab,
-      cropMode,
-      aspectRatioLabel: selectedAspectRatio.name,
-      scanPoints,
-      fixedCropArea,
-      drawerHeight,
-      fileName,
-      artworkInfo
-    })
+    const timer = setTimeout(() => {
+      saveEditorSession({
+        imageUrl: initialImageUrl,
+        artworkId,
+        adjustments,
+        activeTab,
+        cropMode,
+        aspectRatioLabel: selectedAspectRatio.name,
+        scanPoints,
+        fixedCropArea,
+        drawerHeight,
+        fileName,
+        artworkInfo
+      })
+    }, 350)
+    return () => clearTimeout(timer)
   }, [initialImageUrl, artworkId, adjustments, activeTab, cropMode, selectedAspectRatio, scanPoints, fixedCropArea, drawerHeight, fileName, artworkInfo])
 
-  // Adjustments History
+  // Adjustments Change: Immediate state update for 60 FPS live feedback, debounced history push
   const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
     setAdjustments(nextAdj)
-    const newHistory = history.slice(0, historyIndex + 1)
-    newHistory.push(nextAdj)
-    if (newHistory.length > 30) newHistory.shift()
-    setHistory(newHistory)
-    setHistoryIndex(newHistory.length - 1)
+
+    if (historyTimeoutRef.current) {
+      clearTimeout(historyTimeoutRef.current)
+    }
+
+    historyTimeoutRef.current = setTimeout(() => {
+      setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1)
+        newHistory.push(nextAdj)
+        if (newHistory.length > 30) newHistory.shift()
+        setHistoryIndex(newHistory.length - 1)
+        return newHistory
+      })
+    }, 250)
   }
 
   const handleUndo = () => {
@@ -314,7 +367,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
   }
 
   // Render Pipeline: Draws image with Lightroom corrections
-  const renderCanvas = useCallback(() => {
+  // isFastPreview: if true and image > 1280px, renders via downscaled buffer for instant 60 FPS responsiveness
+  const renderCanvas = useCallback((isFastPreview = false) => {
     if (!baseImage || !canvasRef.current) return
     const canvas = canvasRef.current
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
@@ -328,6 +382,45 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
 
+    // Show Before/Original
+    if (showBefore) {
+      ctx.clearRect(0, 0, w, h)
+      ctx.drawImage(baseImage, 0, 0)
+      return
+    }
+
+    // Fast Preview path during active slider dragging on large photos
+    if (isFastPreview && previewSourceRef.current) {
+      const pCanvas = previewSourceRef.current
+      const pw = pCanvas.width
+      const ph = pCanvas.height
+
+      const offCanvas = document.createElement('canvas')
+      offCanvas.width = pw
+      offCanvas.height = ph
+      const offCtx = offCanvas.getContext('2d', { willReadFrequently: true })
+      if (!offCtx) return
+
+      if (adjustments.straighten) {
+        offCtx.translate(pw / 2, ph / 2)
+        offCtx.rotate((adjustments.straighten * Math.PI) / 180)
+        offCtx.drawImage(pCanvas, -pw / 2, -ph / 2)
+      } else {
+        offCtx.drawImage(pCanvas, 0, 0)
+      }
+
+      const pImageData = offCtx.getImageData(0, 0, pw, ph)
+      applyLightroomAdjustments(pImageData, adjustments)
+      offCtx.putImageData(pImageData, 0, 0)
+
+      ctx.clearRect(0, 0, w, h)
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'medium'
+      ctx.drawImage(offCanvas, 0, 0, w, h)
+      return
+    }
+
+    // Full Resolution Render
     ctx.clearRect(0, 0, w, h)
     ctx.save()
     if (adjustments.straighten) {
@@ -339,16 +432,33 @@ export const EditorView: React.FC<EditorViewProps> = ({
     }
     ctx.restore()
 
-    if (showBefore) return
-
     const imageData = ctx.getImageData(0, 0, w, h)
     applyLightroomAdjustments(imageData, adjustments)
     ctx.putImageData(imageData, 0, 0)
   }, [baseImage, adjustments, showBefore])
 
+  // Continuous real-time RAF rendering while dragging + debounced full-res settle
   useEffect(() => {
-    renderCanvas()
-  }, [renderCanvas])
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
+
+    // Render fast preview instantly on next frame
+    rafRef.current = requestAnimationFrame(() => {
+      renderCanvas(true)
+    })
+
+    // Settle full resolution when dragging pauses for 100ms
+    if (previewSourceRef.current) {
+      settleTimeoutRef.current = setTimeout(() => {
+        renderCanvas(false)
+      }, 100)
+    }
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
+    }
+  }, [adjustments, showBefore, renderCanvas])
 
   // Save snapshot to history
   const saveSnapshotToHistory = () => {
@@ -373,6 +483,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   // Direct Download Button (Strictly 100% JPEG quality as requested)
   const handleDirectDownload = () => {
     if (!canvasRef.current) return
+    renderCanvas(false)
     const canvas = canvasRef.current
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0)
     const rawName = artworkInfo.title?.trim() || fileName?.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
@@ -810,7 +921,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           </button>
 
           <button
-            onClick={() => setShowExportModal(true)}
+            onClick={handleOpenExportModal}
             className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#0f0b0c] transition-colors cursor-pointer"
             title="Параметры экспорта"
           >

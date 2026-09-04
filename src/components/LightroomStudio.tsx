@@ -420,6 +420,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                 max="45"
                 step="0.1"
                 value={adjustments.straighten}
+                onInput={(e) => updateAdj('straighten', parseFloat((e.target as HTMLInputElement).value))}
                 onChange={(e) => updateAdj('straighten', parseFloat(e.target.value))}
                 className="flex-1 lr-slider"
               />
@@ -1045,6 +1046,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
           max={max}
           step={step}
           value={value}
+          onInput={(e) => onChange(parseFloat((e.target as HTMLInputElement).value))}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="w-full lr-slider"
         />
