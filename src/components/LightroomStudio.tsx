@@ -51,12 +51,23 @@ interface LightroomStudioProps {
   // Drawer Height
   drawerHeight: number
   onDrawerHeightChange: (h: number) => void
+
+  // Performance callbacks for zero-lag slider dragging
+  onSliderDragStart?: () => void
+  onSliderDragEnd?: () => void
 }
 
-export const LightroomStudio: React.FC<LightroomStudioProps> = ({
+export const SliderDragContext = React.createContext<{
+  onStart?: () => void
+  onEnd?: () => void
+}>({})
+
+export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
   adjustments,
   onChange,
   onReset,
+  onSliderDragStart,
+  onSliderDragEnd,
   activeTab,
   onTabChange,
   cropMode,
@@ -215,10 +226,16 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     magenta: '#ec4899'
   }
 
+  const dragContextValue = useMemo(() => ({
+    onStart: onSliderDragStart,
+    onEnd: onSliderDragEnd
+  }), [onSliderDragStart, onSliderDragEnd])
+
   return (
-    <div
-      className="w-full flex flex-col bg-[#faf8f8] border-t border-[#e3dbdc] select-none text-[#0f0b0c] relative"
-      style={{ height: `${drawerHeight}px` }}
+    <SliderDragContext.Provider value={dragContextValue}>
+    <aside
+      className="bg-[#faf8f8] border-t border-[#e3dbdc] flex flex-col select-none relative shadow-[0_-2px_10px_rgba(15,11,12,0.03)]"
+      style={{ height: `${drawerHeight}px`, minHeight: '170px', maxHeight: '520px' }}
       onTouchStart={(e) => {
         // Stop touch events from bubbling to the canvas viewport drag handler
         e.stopPropagation()
@@ -442,7 +459,10 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                 max="45"
                 step="0.1"
                 value={adjustments.straighten}
-                onInput={(e) => updateAdj('straighten', parseFloat((e.target as HTMLInputElement).value))}
+                onPointerDown={onSliderDragStart}
+                onPointerUp={onSliderDragEnd}
+                onTouchStart={onSliderDragStart}
+                onTouchEnd={onSliderDragEnd}
                 onChange={(e) => updateAdj('straighten', parseFloat(e.target.value))}
                 className="flex-1 lr-slider"
               />
@@ -895,9 +915,10 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
         )}
         </div>
       </div>
-    </div>
+    </aside>
+    </SliderDragContext.Provider>
   )
-}
+})
 
 
 // PresetGroups — memoized category grouping to avoid filtering 170+ presets on every render
@@ -1047,6 +1068,7 @@ const PresetNatureCard: React.FC<{
 }
 
 
+
 // Reusable Lightroom Slider Row (Strictly 1px)
 interface SliderRowProps {
   label: string
@@ -1061,7 +1083,7 @@ interface SliderRowProps {
   onReset: () => void
 }
 
-const SliderRow: React.FC<SliderRowProps> = ({
+const SliderRow: React.FC<SliderRowProps> = React.memo(({
   label,
   value,
   min,
@@ -1073,6 +1095,7 @@ const SliderRow: React.FC<SliderRowProps> = ({
   onChange,
   onReset,
 }) => {
+  const { onStart, onEnd } = React.useContext(SliderDragContext)
   const displayVal = format ? format(value) : `${value > 0 && min < 0 ? `+${value}` : value}${unit}`
 
   return (
@@ -1088,7 +1111,10 @@ const SliderRow: React.FC<SliderRowProps> = ({
           {label}
         </span>
         <button
-          onClick={onReset}
+          onClick={() => {
+            onReset()
+            onEnd?.()
+          }}
           className="font-mono text-xs text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer px-1 hover:bg-[#e3dbdc]/40"
           title="Клик для сброса на 0"
           style={{ minHeight: '28px', minWidth: '28px' }}
@@ -1105,7 +1131,10 @@ const SliderRow: React.FC<SliderRowProps> = ({
           max={max}
           step={step}
           value={value}
-          onInput={(e) => onChange(parseFloat((e.target as HTMLInputElement).value))}
+          onPointerDown={onStart}
+          onPointerUp={onEnd}
+          onTouchStart={onStart}
+          onTouchEnd={onEnd}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           className="w-full lr-slider"
           style={{ touchAction: 'none' }}
@@ -1116,4 +1145,4 @@ const SliderRow: React.FC<SliderRowProps> = ({
       </div>
     </div>
   )
-}
+})

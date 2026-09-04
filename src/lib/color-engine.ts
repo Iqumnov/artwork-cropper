@@ -177,11 +177,22 @@ export function applyLightroomAdjustments(
   const globalSat = 1 + adjustments.saturation / 100
   const vibranceAmount = adjustments.vibrance / 100
 
-  // Curves LUTs
-  const curveRGB = buildCurveLUT(adjustments.curves.rgb)
-  const curveR = buildCurveLUT(adjustments.curves.red)
-  const curveG = buildCurveLUT(adjustments.curves.green)
-  const curveB = buildCurveLUT(adjustments.curves.blue)
+function isDefaultCurve(points: ToneCurvePoint[]): boolean {
+  if (!points || points.length !== 2) return false
+  return points[0].x === 0 && points[0].y === 0 && points[1].x === 255 && points[1].y === 255
+}
+
+  // Curves LUTs (Only allocate and calculate if curves are customized)
+  const hasCurves =
+    !isDefaultCurve(adjustments.curves.rgb) ||
+    !isDefaultCurve(adjustments.curves.red) ||
+    !isDefaultCurve(adjustments.curves.green) ||
+    !isDefaultCurve(adjustments.curves.blue)
+
+  const curveRGB = hasCurves ? buildCurveLUT(adjustments.curves.rgb) : null
+  const curveR = hasCurves ? buildCurveLUT(adjustments.curves.red) : null
+  const curveG = hasCurves ? buildCurveLUT(adjustments.curves.green) : null
+  const curveB = hasCurves ? buildCurveLUT(adjustments.curves.blue) : null
 
   // Split Toning Colors (RGB offsets in 0..255)
   const shadowHue = adjustments.colorGrading.shadows.hue
@@ -412,13 +423,15 @@ export function applyLightroomAdjustments(
     }
 
     // --- Curves ---
-    let rIdx = Math.max(0, Math.min(255, Math.round(r)))
-    let gIdx = Math.max(0, Math.min(255, Math.round(g)))
-    let bIdx = Math.max(0, Math.min(255, Math.round(b)))
+    if (hasCurves && curveRGB && curveR && curveG && curveB) {
+      const rIdx = Math.max(0, Math.min(255, Math.round(r)))
+      const gIdx = Math.max(0, Math.min(255, Math.round(g)))
+      const bIdx = Math.max(0, Math.min(255, Math.round(b)))
 
-    r = curveRGB[curveR[rIdx]]
-    g = curveRGB[curveG[gIdx]]
-    b = curveRGB[curveB[bIdx]]
+      r = curveRGB[curveR[rIdx]]
+      g = curveRGB[curveG[gIdx]]
+      b = curveRGB[curveB[bIdx]]
+    }
 
     // --- Vignette ---
     if (vignetteAmount !== 0) {
