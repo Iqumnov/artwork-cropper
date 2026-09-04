@@ -26,3 +26,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Wrangler
+.wrangler/
+.dev.vars
+worker-configuration.d.ts
