@@ -639,73 +639,31 @@ export function warpPerspectiveCanvas(
   const targetWidth = Math.max(10, Math.round(Math.max(widthTop, widthBottom)))
   const targetHeight = Math.max(10, Math.round(Math.max(heightLeft, heightRight)))
 
-  // 1. Try OpenCV if available
-  if (isOpenCVAvailable()) {
-    try {
-      const cv = (window as any).cv
-      let srcMat: any
-      if (sourceImage instanceof HTMLCanvasElement) {
-        srcMat = cv.imread(sourceImage)
-      } else {
-        const tempCanvas = document.createElement('canvas')
-        tempCanvas.width = naturalWidth
-        tempCanvas.height = naturalHeight
-        const tCtx = tempCanvas.getContext('2d')!
-        tCtx.drawImage(sourceImage, 0, 0)
-        srcMat = cv.imread(tempCanvas)
-      }
-
-      const dstMat = new cv.Mat()
-      const dsize = new cv.Size(targetWidth, targetHeight)
-
-      const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-        points[0].x, points[0].y,
-        points[1].x, points[1].y,
-        points[2].x, points[2].y,
-        points[3].x, points[3].y,
-      ])
-
-      const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-        0, 0,
-        targetWidth, 0,
-        targetWidth, targetHeight,
-        0, targetHeight,
-      ])
-
-      const M = cv.getPerspectiveTransform(srcTri, dstTri)
-      cv.warpPerspective(srcMat, dstMat, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(0, 0, 0, 0))
-
-      const outputCanvas = document.createElement('canvas')
-      cv.imshow(outputCanvas, dstMat)
-
-      srcMat.delete()
-      dstMat.delete()
-      srcTri.delete()
-      dstTri.delete()
-      M.delete()
-
-      return outputCanvas
-    } catch (e) {
-      console.warn('OpenCV warp failed, falling back to pure Canvas homography:', e)
-    }
-  }
-
-  // 2. Pure Canvas Homography Mesh Subdivision Fallback (Zero dependency, high speed)
+  // Pure Canvas Homography Bilinear Interpolation (100% seamless, NO triangle mesh, NO seams, NO diagonal lines)
   const outputCanvas = document.createElement('canvas')
   outputCanvas.width = targetWidth
   outputCanvas.height = targetHeight
-  const ctx = outputCanvas.getContext('2d')
+  const ctx = outputCanvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return outputCanvas
 
   // Create source canvas for reading
-  const srcCanvas = document.createElement('canvas')
-  srcCanvas.width = naturalWidth
-  srcCanvas.height = naturalHeight
-  const srcCtx = srcCanvas.getContext('2d')!
-  srcCtx.drawImage(sourceImage, 0, 0)
+  let srcCanvas: HTMLCanvasElement
+  if (sourceImage instanceof HTMLCanvasElement) {
+    srcCanvas = sourceImage
+  } else {
+    srcCanvas = document.createElement('canvas')
+    srcCanvas.width = naturalWidth
+    srcCanvas.height = naturalHeight
+    const srcCtx = srcCanvas.getContext('2d')!
+    srcCtx.drawImage(sourceImage, 0, 0)
+  }
 
-  // Subdivide quadrilateral into triangular mesh (16x16 grid)
-  const subdivisions = 16
+  const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true })
+  if (!srcCtx) return outputCanvas
+
+  const srcImageData = srcCtx.getImageData(0, 0, naturalWidth, naturalHeight)
+  const srcData = srcImageData.data
+
   const dstCorners: ScanPoint[] = [
     { x: 0, y: 0 },
     { x: targetWidth, y: 0 },
@@ -715,84 +673,67 @@ export function warpPerspectiveCanvas(
 
   const H_inv = getHomographyMatrix(dstCorners, points)
   if (!H_inv) {
-    // If matrix singular, draw bounding box
+    // If matrix singular, draw direct bounding box
     ctx.drawImage(srcCanvas, 0, 0, targetWidth, targetHeight)
     return outputCanvas
   }
 
-  const mapDstToSrc = (x: number, y: number): ScanPoint => {
-    const denom = H_inv[6] * x + H_inv[7] * y + H_inv[8]
-    return {
-      x: (H_inv[0] * x + H_inv[1] * y + H_inv[2]) / denom,
-      y: (H_inv[3] * x + H_inv[4] * y + H_inv[5]) / denom
+  const dstImageData = ctx.createImageData(targetWidth, targetHeight)
+  const dstData = dstImageData.data
+
+  const [h0, h1, h2, h3, h4, h5, h6, h7, h8] = H_inv
+  const maxSrcX = naturalWidth - 1
+  const maxSrcY = naturalHeight - 1
+
+  let dstIdx = 0
+  for (let y = 0; y < targetHeight; y++) {
+    const numX_base = h1 * y + h2
+    const numY_base = h4 * y + h5
+    const denom_base = h7 * y + h8
+
+    for (let x = 0; x < targetWidth; x++) {
+      const curDenom = h6 * x + denom_base
+      if (curDenom === 0) {
+        dstData[dstIdx + 3] = 255
+        dstIdx += 4
+        continue
+      }
+
+      const invDenom = 1 / curDenom
+      const rawSrcX = (h0 * x + numX_base) * invDenom
+      const rawSrcY = (h3 * x + numY_base) * invDenom
+
+      // Clamp cleanly to source boundaries to prevent transparent edges
+      const srcX = Math.max(0, Math.min(maxSrcX, rawSrcX))
+      const srcY = Math.max(0, Math.min(maxSrcY, rawSrcY))
+
+      const x0 = Math.floor(srcX)
+      const y0 = Math.floor(srcY)
+      const x1 = Math.min(x0 + 1, maxSrcX)
+      const y1 = Math.min(y0 + 1, maxSrcY)
+
+      const fx = srcX - x0
+      const fy = srcY - y0
+
+      const w00 = (1 - fx) * (1 - fy)
+      const w10 = fx * (1 - fy)
+      const w01 = (1 - fx) * fy
+      const w11 = fx * fy
+
+      const idx00 = (y0 * naturalWidth + x0) * 4
+      const idx10 = (y0 * naturalWidth + x1) * 4
+      const idx01 = (y1 * naturalWidth + x0) * 4
+      const idx11 = (y1 * naturalWidth + x1) * 4
+
+      dstData[dstIdx] = Math.round(srcData[idx00] * w00 + srcData[idx10] * w10 + srcData[idx01] * w01 + srcData[idx11] * w11)
+      dstData[dstIdx + 1] = Math.round(srcData[idx00 + 1] * w00 + srcData[idx10 + 1] * w10 + srcData[idx01 + 1] * w01 + srcData[idx11 + 1] * w11)
+      dstData[dstIdx + 2] = Math.round(srcData[idx00 + 2] * w00 + srcData[idx10 + 2] * w10 + srcData[idx01 + 2] * w01 + srcData[idx11 + 2] * w11)
+      const alpha = Math.round(srcData[idx00 + 3] * w00 + srcData[idx10 + 3] * w10 + srcData[idx01 + 3] * w01 + srcData[idx11 + 3] * w11)
+      dstData[dstIdx + 3] = alpha >= 250 ? 255 : alpha
+      dstIdx += 4
     }
   }
 
-  // Draw grid of warped triangles
-  const stepX = targetWidth / subdivisions
-  const stepY = targetHeight / subdivisions
-
-  for (let i = 0; i < subdivisions; i++) {
-    for (let j = 0; j < subdivisions; j++) {
-      const x0 = i * stepX
-      const y0 = j * stepY
-      const x1 = (i + 1) * stepX
-      const y1 = (j + 1) * stepY
-
-      const s0 = mapDstToSrc(x0, y0)
-      const s1 = mapDstToSrc(x1, y0)
-      const s2 = mapDstToSrc(x0, y1)
-      const s3 = mapDstToSrc(x1, y1)
-
-      // Upper triangle (s0, s1, s2) -> (x0, y0), (x1, y0), (x0, y1)
-      drawWarpedTriangle(ctx, srcCanvas, s0, s1, s2, { x: x0, y: y0 }, { x: x1, y: y0 }, { x: x0, y: y1 })
-      // Lower triangle (s1, s3, s2) -> (x1, y0), (x1, y1), (x0, y1)
-      drawWarpedTriangle(ctx, srcCanvas, s1, s3, s2, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 })
-    }
-  }
-
+  ctx.putImageData(dstImageData, 0, 0)
   return outputCanvas
-}
-
-function drawWarpedTriangle(
-  ctx: CanvasRenderingContext2D,
-  srcImg: CanvasImageSource,
-  s0: ScanPoint, s1: ScanPoint, s2: ScanPoint,
-  d0: ScanPoint, d1: ScanPoint, d2: ScanPoint
-) {
-  ctx.save()
-  ctx.beginPath()
-  ctx.moveTo(d0.x, d0.y)
-  ctx.lineTo(d1.x, d1.y)
-  ctx.lineTo(d2.x, d2.y)
-  ctx.closePath()
-  ctx.clip()
-
-  // Solve affine transform matrix for triangle mapping s0,s1,s2 -> d0,d1,d2
-  const det = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y)
-  if (Math.abs(det) < 1e-6) {
-    ctx.restore()
-    return
-  }
-
-  const u1 = d1.x - d0.x
-  const u2 = d2.x - d0.x
-  const v1 = d1.y - d0.y
-  const v2 = d2.y - d0.y
-  const dx1 = s1.x - s0.x
-  const dy1 = s1.y - s0.y
-  const dx2 = s2.x - s0.x
-  const dy2 = s2.y - s0.y
-
-  const a = (u1 * dy2 - u2 * dy1) / det
-  const c = (u2 * dx1 - u1 * dx2) / det
-  const e = d0.x - a * s0.x - c * s0.y
-
-  const b = (v1 * dy2 - v2 * dy1) / det
-  const d = (v2 * dx1 - v1 * dx2) / det
-  const f = d0.y - b * s0.x - d * s0.y
-
-  ctx.transform(a, b, c, d, e, f)
-  ctx.drawImage(srcImg, 0, 0)
-  ctx.restore()
 }
