@@ -80,6 +80,19 @@ export const EditorView: React.FC<EditorViewProps> = ({
   // Post Mode and Wall View Modal States
   const [isPostModeOpen, setIsPostModeOpen] = useState(false)
   const [isWallModalOpen, setIsWallModalOpen] = useState(false)
+  const [modalImageSrc, setModalImageSrc] = useState<string>('')
+
+  const handleOpenPostMode = () => {
+    const src = canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl
+    setModalImageSrc(src)
+    setIsPostModeOpen(true)
+  }
+
+  const handleOpenWallView = () => {
+    const src = canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl
+    setModalImageSrc(src)
+    setIsWallModalOpen(true)
+  }
 
   // Drawer & Tabs — defaults to 'crop' (Кадрирование) as requested
   const [activeTab, setActiveTab] = useState<EditorTab>(initialTab || 'crop')
@@ -755,7 +768,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
         <div className="flex items-center gap-1.5">
           {/* Post Mode Button */}
           <button
-            onClick={() => setIsPostModeOpen(true)}
+            onClick={handleOpenPostMode}
             className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
             title="Режим публикации (пост)"
           >
@@ -777,7 +790,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
           {/* View on Wall Button */}
           <button
-            onClick={() => setIsWallModalOpen(true)}
+            onClick={handleOpenWallView}
             className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
             title="Примерка на стене"
           >
@@ -1157,7 +1170,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       {/* Post Mode View (Exact layout & typography from ourdynasty) */}
       <PostModeView
         isOpen={isPostModeOpen}
-        imageSrc={canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl}
+        imageSrc={modalImageSrc || initialImageUrl}
         artworkInfo={artworkInfo}
         onUpdateArtworkInfo={(updated) => {
           setArtworkInfo(updated)
@@ -1169,7 +1182,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       <WallViewModal
         isOpen={isWallModalOpen}
         onClose={() => setIsWallModalOpen(false)}
-        imageSrc={canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl}
+        imageSrc={modalImageSrc || initialImageUrl}
         title={artworkInfo.title || 'Картина'}
         dimensions={artworkInfo.dimensions?.trim() || ''}
       />

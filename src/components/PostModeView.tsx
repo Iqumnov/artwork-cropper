@@ -22,30 +22,26 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
   const isLongPressingRef = useRef(false)
   const [pressProgress, setPressProgress] = useState(false)
 
-  // Keep local info in sync when prop changes
+  const latestInfoRef = useRef<ArtworkInfo>(artworkInfo)
+  latestInfoRef.current = info
+
+  // Keep local info in sync when prop changes from outside
   useEffect(() => {
     setInfo(artworkInfo)
   }, [artworkInfo])
-
-  // Save changes on unmount or close
-  useEffect(() => {
-    return () => {
-      onUpdateArtworkInfo(info)
-    }
-  }, [info, onUpdateArtworkInfo])
 
   // Keyboard escape
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onUpdateArtworkInfo(info)
+        onUpdateArtworkInfo(latestInfoRef.current)
         onClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, info, onUpdateArtworkInfo, onClose])
+  }, [isOpen, onUpdateArtworkInfo, onClose])
 
   if (!isOpen) return null
 
