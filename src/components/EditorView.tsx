@@ -714,19 +714,20 @@ export const EditorView: React.FC<EditorViewProps> = ({
     ctx.save()
     ctx.globalCompositeOperation = 'difference'
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = 1
 
-    // Crosshair lines
+    const center = Math.floor(size / 2) + 0.5
+    // Crosshair lines (exact crisp 1px without subpixel blur)
     ctx.beginPath()
-    ctx.moveTo(size / 2, 0)
-    ctx.lineTo(size / 2, size)
-    ctx.moveTo(0, size / 2)
-    ctx.lineTo(size, size / 2)
+    ctx.moveTo(center, 0)
+    ctx.lineTo(center, size)
+    ctx.moveTo(0, center)
+    ctx.lineTo(size, center)
     ctx.stroke()
 
-    // Circular perimeter border (SAME color and dynamic reaction as crosshair)
+    // Circular perimeter border (SAME color, crisp 1px ring)
     ctx.beginPath()
-    ctx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2)
+    ctx.arc(size / 2, size / 2, size / 2 - 0.5, 0, Math.PI * 2)
     ctx.stroke()
 
     ctx.restore()
