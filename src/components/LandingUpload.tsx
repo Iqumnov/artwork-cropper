@@ -5,10 +5,16 @@ import { generateSampleArtwork } from '../lib/sample-images'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import { getArtworkHistory, deleteArtworkFromHistory, clearArtworkHistory, HistoryArtwork } from '../lib/history-storage'
 import { loadAnyImageFile } from '../lib/image-loader'
-import { LightroomAdjustments } from '../types'
+import { LightroomAdjustments, ArtworkInfo } from '../types'
 
 interface LandingUploadProps {
-  onImageSelect: (imageUrl: string, initialAdjustments?: LightroomAdjustments, artworkId?: string) => void
+  onImageSelect: (
+    imageUrl: string,
+    initialAdjustments?: LightroomAdjustments,
+    artworkId?: string,
+    fileName?: string,
+    artworkInfo?: ArtworkInfo
+  ) => void
 }
 
 export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) => {
@@ -44,7 +50,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
     try {
       const res = await loadAnyImageFile(file)
       if (res && res.dataUrl) {
-        onImageSelect(res.dataUrl)
+        onImageSelect(res.dataUrl, undefined, undefined, file.name)
       }
     } catch (err) {
       console.error('File processing error:', err)
@@ -204,7 +210,7 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect }) =
           <div className="w-full border border-[#e3dbdc] p-2 bg-white/70 shrink-0">
             <ArtworkHistoryCarousel
               items={historyItems}
-              onSelect={(item) => onImageSelect(item.dataUrl, item.adjustments, item.id)}
+              onSelect={(item) => onImageSelect(item.dataUrl, item.adjustments, item.id, item.fileName, item.artworkInfo)}
               onDelete={handleDeleteHistoryItem}
               onClearAll={handleClearAllHistory}
             />

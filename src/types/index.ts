@@ -44,6 +44,21 @@ export interface SplitTone {
   sat: number // 0 to 100
 }
 
+export interface ColorGrading {
+  shadows: SplitTone
+  midtones: SplitTone
+  highlights: SplitTone
+  balance?: number // -100 to +100
+}
+
+export interface ArtworkInfo {
+  title: string
+  artist: string
+  medium?: string
+  dimensions?: string
+  year?: string
+}
+
 export interface LightroomAdjustments {
   // LIGHT
   exposure: number // -5.0 to +5.0 EV (default 0)
@@ -83,11 +98,7 @@ export interface LightroomAdjustments {
   }
 
   // COLOR GRADING (Split Toning)
-  colorGrading: {
-    shadows: SplitTone
-    midtones: SplitTone
-    highlights: SplitTone
-  }
+  colorGrading: ColorGrading
 
   // GEOMETRY
   straighten: number // -45 to +45 deg
@@ -106,3 +117,4 @@ export interface Preset {
 }
 
 export type EditorTab = 'crop' | 'light' | 'color' | 'effects' | 'detail' | 'curves' | 'presets'
+

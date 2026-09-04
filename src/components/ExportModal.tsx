@@ -1,47 +1,88 @@
 import React, { useState, useEffect } from 'react'
-import { X, Download, Copy, Check } from 'lucide-react'
+import { X, Download, Copy, Check, RotateCcw } from 'lucide-react'
 
 interface ExportModalProps {
   isOpen: boolean
   onClose: () => void
   canvas: HTMLCanvasElement | null
+  originalFileName?: string
+  artworkTitle?: string
 }
 
-export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canvas }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({
+  isOpen,
+  onClose,
+  canvas,
+  originalFileName,
+  artworkTitle,
+}) => {
   const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg')
   const [quality, setQuality] = useState(0.92)
   const [copied, setCopied] = useState(false)
   const [estimatedSize, setEstimatedSize] = useState<string>('')
 
+  // Clean original file name (remove extension)
+  const getCleanOriginalName = () => {
+    if (!originalFileName) return `artwork_${Date.now()}`
+    return originalFileName.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
+  }
+
+  // Initial file name: prioritizes artworkTitle, then originalFileName
+  const getDefaultName = () => {
+    if (artworkTitle && artworkTitle.trim().length > 0) {
+      return artworkTitle.trim()
+    }
+    return getCleanOriginalName()
+  }
+
+  const [fileName, setFileName] = useState<string>(getDefaultName)
+
+  // Reset file name when modal opens or inputs change
+  useEffect(() => {
+    if (isOpen) {
+      setFileName(getDefaultName())
+    }
+  }, [isOpen, artworkTitle, originalFileName])
+
   useEffect(() => {
     if (!canvas || !isOpen) return
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const kb = blob.size / 1024
-        if (kb >= 1024) {
-          setEstimatedSize(`${(kb / 1024).toFixed(2)} МБ`)
-        } else {
-          setEstimatedSize(`${Math.round(kb)} КБ`)
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const kb = blob.size / 1024
+          if (kb >= 1024) {
+            setEstimatedSize(`${(kb / 1024).toFixed(2)} МБ`)
+          } else {
+            setEstimatedSize(`${Math.round(kb)} КБ`)
+          }
         }
-      }
-    }, format, quality)
+      },
+      format,
+      quality
+    )
   }, [canvas, format, quality, isOpen])
 
   if (!isOpen || !canvas) return null
 
   const width = canvas.width
   const height = canvas.height
+  const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
 
   const handleDownload = () => {
-    const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
+    // Sanitize file name for filesystem safety
+    const safeName = (fileName.trim() || getDefaultName()).replace(/[/\\?%*:|"<>]/g, '-')
     const dataUrl = canvas.toDataURL(format, quality)
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `artwork_${Date.now()}.${ext}`
+    a.download = `${safeName}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     onClose()
+  }
+
+  const handleResetToOriginal = () => {
+    setFileName(getCleanOriginalName())
   }
 
   const handleCopyToClipboard = async () => {
@@ -50,8 +91,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
         if (!blob) return
         await navigator.clipboard.write([
           new ClipboardItem({
-            [blob.type]: blob
-          })
+            [blob.type]: blob,
+          }),
         ])
         setCopied(true)
         setTimeout(() => setCopied(false), 2500)
@@ -63,12 +104,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#faf8f8] border border-[#e3dbdc] p-6 max-w-sm w-full shadow-xl flex flex-col gap-4 text-[#0f0b0c]">
+      <div className="bg-[#faf8f8] border border-[#e3dbdc] p-5 sm:p-6 max-w-sm w-full shadow-xl flex flex-col gap-3.5 text-[#0f0b0c]">
         {/* Header without additional border */}
         <div className="flex items-center justify-between pb-1">
           <div>
-            <h3 className="text-base font-normal text-[#0f0b0c] tracking-tight m-0">Экспорт работы</h3>
-            <p className="text-xs text-[#565051] font-mono mt-0.5">{width} × {height} px {estimatedSize ? `• ~${estimatedSize}` : ''}</p>
+            <h3 className="text-base font-normal text-[#0f0b0c] tracking-tight m-0">
+              Экспорт работы
+            </h3>
+            <p className="text-xs text-[#565051] font-mono mt-0.5">
+              {width} × {height} px {estimatedSize ? `• ~${estimatedSize}` : ''}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -78,14 +123,47 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
           </button>
         </div>
 
+        {/* File Name Field with Reset Button */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-normal text-[#565051] uppercase tracking-wider">
+              Название файла
+            </label>
+            <button
+              type="button"
+              onClick={handleResetToOriginal}
+              className="flex items-center gap-1 text-[11px] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
+              title="Вернуться к изначальному названию файла"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Сбросить</span>
+            </button>
+          </div>
+
+          <div className="flex items-center border border-[#e3dbdc] hover:border-[#34292a] bg-white transition-colors">
+            <input
+              type="text"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              placeholder="Введите название..."
+              className="flex-1 px-2.5 py-1.5 text-xs text-[#0f0b0c] bg-transparent outline-none border-none"
+            />
+            <span className="px-2 text-xs font-mono text-[#565051] select-none bg-[#faf8f8] border-l border-[#e3dbdc] py-1.5">
+              .{ext}
+            </span>
+          </div>
+        </div>
+
         {/* Format Selector */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-normal text-[#565051] uppercase tracking-wider">Формат файла</label>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-normal text-[#565051] uppercase tracking-wider">
+            Формат файла
+          </label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { id: 'image/jpeg', label: 'JPG' },
               { id: 'image/png', label: 'PNG' },
-              { id: 'image/webp', label: 'WebP' }
+              { id: 'image/webp', label: 'WebP' },
             ].map((f) => (
               <button
                 key={f.id}
@@ -104,9 +182,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
 
         {/* Quality Slider (for JPG and WebP) */}
         {format !== 'image/png' && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[#565051] font-normal uppercase tracking-wider">Степень сжатия / Качество</span>
+              <span className="text-[#565051] font-normal uppercase tracking-wider">
+                Качество сжатия
+              </span>
               <span className="font-mono text-[#0f0b0c]">{Math.round(quality * 100)}%</span>
             </div>
             <input
@@ -122,9 +202,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, canva
         )}
 
         {/* Dynamic Estimated Size readout */}
-        <div className="flex items-center justify-between text-xs pt-1">
-          <span className="text-[#565051]">Итоговый размер:</span>
-          <span className="font-mono text-[#0f0b0c] font-normal">{estimatedSize || 'расчёт...'}</span>
+        <div className="flex items-center justify-between text-xs pt-0.5">
+          <span className="text-[#565051]">Примерный размер:</span>
+          <span className="font-mono text-[#0f0b0c] font-normal">
+            {estimatedSize || 'расчёт...'}
+          </span>
         </div>
 
         {/* Action Buttons */}

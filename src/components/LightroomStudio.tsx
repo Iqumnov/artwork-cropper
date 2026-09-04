@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   Crop,
   Sun,
@@ -24,6 +24,7 @@ import {
   ASPECT_RATIOS
 } from '../types'
 import { DEFAULT_HSL_CHANNELS, LIGHTROOM_PRESETS } from '../lib/presets'
+import { getPresetNatureThumbnail } from '../lib/preset-thumbnails'
 import { ToneCurveEditor } from './ToneCurveEditor'
 
 interface LightroomStudioProps {
@@ -134,12 +135,22 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
     })
   }
 
-  const updateSplitTone = (tone: 'shadows' | 'highlights', field: 'hue' | 'sat', val: number) => {
+  const updateSplitTone = (tone: 'shadows' | 'midtones' | 'highlights', field: 'hue' | 'sat', val: number) => {
     onChange({
       ...adjustments,
       colorGrading: {
         ...adjustments.colorGrading,
         [tone]: { ...adjustments.colorGrading[tone], [field]: val }
+      }
+    })
+  }
+
+  const updateColorBalance = (val: number) => {
+    onChange({
+      ...adjustments,
+      colorGrading: {
+        ...adjustments.colorGrading,
+        balance: val
       }
     })
   }
@@ -616,6 +627,23 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                   onReset={() => updateSplitTone('shadows', 'sat', 0)}
                 />
                 <SliderRow
+                  label="Тон средних тонов"
+                  value={adjustments.colorGrading.midtones?.hue || 0}
+                  min={0}
+                  max={360}
+                  unit="°"
+                  onChange={(v) => updateSplitTone('midtones', 'hue', v)}
+                  onReset={() => updateSplitTone('midtones', 'hue', 0)}
+                />
+                <SliderRow
+                  label="Степень средних тонов"
+                  value={adjustments.colorGrading.midtones?.sat || 0}
+                  min={0}
+                  max={100}
+                  onChange={(v) => updateSplitTone('midtones', 'sat', v)}
+                  onReset={() => updateSplitTone('midtones', 'sat', 0)}
+                />
+                <SliderRow
                   label="Тон светов"
                   value={adjustments.colorGrading.highlights.hue}
                   min={0}
@@ -632,6 +660,16 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
                   onChange={(v) => updateSplitTone('highlights', 'sat', v)}
                   onReset={() => updateSplitTone('highlights', 'sat', 0)}
                 />
+                <div className="sm:col-span-2">
+                  <SliderRow
+                    label="Баланс (Тени ↔ Света)"
+                    value={adjustments.colorGrading.balance || 0}
+                    min={-100}
+                    max={100}
+                    onChange={updateColorBalance}
+                    onReset={() => updateColorBalance(0)}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -797,8 +835,8 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               )}
             </div>
 
-            {/* Category Filter Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 border-b border-[#e3dbdc] pb-2">
+            {/* Category Filter Tabs — no extra border */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 pb-1.5">
               {[
                 { id: 'Все', label: 'Все' },
                 { id: 'Пользовательские', label: `Пользовательские ${customPresets.length > 0 ? `(${customPresets.length})` : ''}` },
@@ -823,47 +861,25 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
               ))}
             </div>
 
-            {/* Helper Notice */}
-            <p className="text-[11px] text-[#565051] leading-tight">
-              Все пресеты можно гибко регулировать — они выставляют параметры на ползунках и кривых.
-            </p>
-
             {/* Presets by Groups: Custom Group ALWAYS 1st */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 pt-1">
               {/* Group 1: Custom Presets (Always First) */}
               {(selectedPresetCategory === 'Все' || selectedPresetCategory === 'Пользовательские') && (
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal border-b border-[#e3dbdc]/60 pb-1">
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal pb-0.5">
                     <span>Пользовательские пресеты</span>
                     <span>{customPresets.length}</span>
                   </div>
 
                   {customPresets.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                       {customPresets.map((preset) => (
-                        <div
+                        <PresetNatureCard
                           key={preset.id}
-                          onClick={() => handleApplyPreset(preset)}
-                          className="group relative flex items-center justify-between p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
-                        >
-                          <div className="flex flex-col min-w-0 pr-2">
-                            <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
-                              {preset.name}
-                            </span>
-                            <span className="text-[10px] text-[#565051] truncate mt-0.5">
-                              Пользовательский
-                            </span>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCustomPreset(preset.id, e)}
-                            className="w-6 h-6 shrink-0 flex items-center justify-center text-[#565051] hover:text-red-600 hover:bg-[#e3dbdc]/30 transition-colors cursor-pointer"
-                            title="Удалить пресет"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                          preset={preset}
+                          onApply={handleApplyPreset}
+                          onDelete={handleDeleteCustomPreset}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -885,26 +901,18 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
 
                   return (
                     <div key={category} className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal border-b border-[#e3dbdc]/60 pb-1">
+                      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#565051] font-normal pb-0.5">
                         <span>{category}</span>
                         <span>{categoryPresets.length}</span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                         {categoryPresets.map((preset) => (
-                          <button
+                          <PresetNatureCard
                             key={preset.id}
-                            type="button"
-                            onClick={() => handleApplyPreset(preset)}
-                            className="group relative flex flex-col p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] text-left transition-colors cursor-pointer"
-                          >
-                            <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
-                              {preset.name}
-                            </span>
-                            <span className="text-[10px] text-[#565051] truncate mt-0.5">
-                              {preset.category}
-                            </span>
-                          </button>
+                            preset={preset}
+                            onApply={handleApplyPreset}
+                          />
                         ))}
                       </div>
                     </div>
@@ -913,6 +921,69 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = ({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Preset Card with Live Applied Nature Landscape Preview
+const PresetNatureCard: React.FC<{
+  preset: Preset
+  onApply: (preset: Preset) => void
+  onDelete?: (id: string, e: React.MouseEvent) => void
+}> = ({ preset, onApply, onDelete }) => {
+  const [thumbSrc, setThumbSrc] = useState<string>('')
+
+  useEffect(() => {
+    let isMounted = true
+    getPresetNatureThumbnail(preset).then((url) => {
+      if (isMounted && url) {
+        setThumbSrc(url)
+      }
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [preset])
+
+  return (
+    <div
+      onClick={() => onApply(preset)}
+      className="group relative flex flex-col bg-white border border-[#e3dbdc] hover:border-[#34292a] overflow-hidden text-left transition-colors cursor-pointer"
+    >
+      <div className="w-full aspect-[4/3] bg-[#f0eded] relative overflow-hidden">
+        {thumbSrc ? (
+          <img
+            src={thumbSrc}
+            alt={preset.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[10px] text-[#565051] bg-[#f5f2f2] animate-pulse">
+            Пейзаж...
+          </div>
+        )}
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => onDelete(preset.id, e)}
+            className="absolute top-1 right-1 w-6 h-6 bg-white/90 hover:bg-white border border-[#e3dbdc] flex items-center justify-center text-[#565051] hover:text-red-600 transition-colors cursor-pointer z-10"
+            title="Удалить пресет"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      <div className="p-2 flex flex-col min-w-0">
+        <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
+          {preset.name}
+        </span>
+        <span className="text-[10px] text-[#565051] truncate mt-0.5">
+          {preset.category}
+        </span>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { LightroomAdjustments } from '../types'
+import { LightroomAdjustments, ArtworkInfo } from '../types'
 
 export interface HistoryArtwork {
   id: string
@@ -9,6 +9,8 @@ export interface HistoryArtwork {
   timestamp: number
   width: number
   height: number
+  fileName?: string
+  artworkInfo?: ArtworkInfo
 }
 
 const DB_NAME = 'artei_studio_db'
@@ -28,6 +30,8 @@ export interface EditorSessionData {
   scanPoints?: { x: number; y: number }[]
   fixedCropArea?: { x: number; y: number; width: number; height: number }
   drawerHeight?: number
+  fileName?: string
+  artworkInfo?: ArtworkInfo
   timestamp: number
 }
 

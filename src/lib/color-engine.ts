@@ -166,12 +166,19 @@ export function applyLightroomAdjustments(
 
   // Split Toning Colors (RGB offsets in 0..255)
   const shadowHue = adjustments.colorGrading.shadows.hue
-  const shadowSat = adjustments.colorGrading.shadows.sat / 100
+  const shadowSat = (adjustments.colorGrading.shadows.sat || 0) / 100
   const [sR, sG, sB] = hslToRgb(shadowHue, shadowSat, 0.5)
 
+  const midHue = adjustments.colorGrading.midtones?.hue || 0
+  const midSat = (adjustments.colorGrading.midtones?.sat || 0) / 100
+  const [mR, mG, mB] = hslToRgb(midHue, midSat, 0.5)
+
   const highHue = adjustments.colorGrading.highlights.hue
-  const highSat = adjustments.colorGrading.highlights.sat / 100
+  const highSat = (adjustments.colorGrading.highlights.sat || 0) / 100
   const [hR, hG, hB] = hslToRgb(highHue, highSat, 0.5)
+
+  const balance = (adjustments.colorGrading.balance || 0) / 100
+  const midPoint = 0.5 + balance * 0.25
 
   // Fast check if HSL mixer is active
   const hasHslMixer = Object.values(adjustments.hsl).some(
@@ -306,16 +313,26 @@ export function applyLightroomAdjustments(
       b = newB
     }
 
-    // --- Color Grading / Split Toning ---
-    if (shadowSat > 0 && normLum < 0.6) {
-      const w = Math.pow(1 - normLum / 0.6, 2) * shadowSat * 0.4
+    // --- Color Grading / Split Toning with Midtones & Balance ---
+    if (shadowSat > 0 && normLum < midPoint + 0.1) {
+      const w = Math.pow(Math.max(0, 1 - normLum / (midPoint + 0.1)), 2) * shadowSat * 0.4
       r = r * (1 - w) + sR * w
       g = g * (1 - w) + sG * w
       b = b * (1 - w) + sB * w
     }
 
-    if (highSat > 0 && normLum > 0.4) {
-      const w = Math.pow((normLum - 0.4) / 0.6, 2) * highSat * 0.4
+    if (midSat > 0) {
+      const midDist = Math.abs(normLum - midPoint)
+      if (midDist < 0.35) {
+        const w = Math.cos((midDist / 0.35) * (Math.PI / 2)) * midSat * 0.35
+        r = r * (1 - w) + mR * w
+        g = g * (1 - w) + mG * w
+        b = b * (1 - w) + mB * w
+      }
+    }
+
+    if (highSat > 0 && normLum > midPoint - 0.1) {
+      const w = Math.pow(Math.max(0, (normLum - (midPoint - 0.1)) / (1 - (midPoint - 0.1))), 2) * highSat * 0.4
       r = r * (1 - w) + hR * w
       g = g * (1 - w) + hG * w
       b = b * (1 - w) + hB * w

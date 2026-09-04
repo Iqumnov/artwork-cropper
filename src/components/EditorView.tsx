@@ -14,13 +14,16 @@ import {
   CropArea,
   AspectRatio,
   EditorTab,
-  ASPECT_RATIOS
+  ASPECT_RATIOS,
+  ArtworkInfo
 } from '../types'
 import { getDefaultAdjustments } from '../lib/presets'
 import { applyLightroomAdjustments } from '../lib/color-engine'
 import { warpPerspectiveCanvas, detectDocumentCorners } from '../lib/perspective-warp'
 import { LightroomStudio } from './LightroomStudio'
 import { ExportModal } from './ExportModal'
+import { PostModeView } from './PostModeView'
+import { WallViewModal } from './WallViewModal'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import {
   getArtworkHistory,
@@ -36,6 +39,8 @@ interface EditorViewProps {
   initialImageUrl: string
   initialAdjustments?: LightroomAdjustments
   initialArtworkId?: string
+  initialFileName?: string
+  initialArtworkInfo?: ArtworkInfo
   initialTab?: EditorTab
   initialCropMode?: 'scan' | 'fixed'
   initialScanPoints?: ScanPoint[]
@@ -48,6 +53,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
   initialImageUrl,
   initialAdjustments,
   initialArtworkId,
+  initialFileName,
+  initialArtworkInfo,
   initialTab,
   initialCropMode,
   initialScanPoints,
@@ -57,6 +64,22 @@ export const EditorView: React.FC<EditorViewProps> = ({
 }) => {
   const [artworkId, setArtworkId] = useState(initialArtworkId || `art_${Date.now()}`)
   const [baseImage, setBaseImage] = useState<HTMLImageElement | HTMLCanvasElement | null>(null)
+  const [fileName, setFileName] = useState<string>(initialFileName || '')
+  const [artworkInfo, setArtworkInfo] = useState<ArtworkInfo>(() => {
+    return (
+      initialArtworkInfo || {
+        title: '',
+        artist: '',
+        medium: '',
+        dimensions: '',
+        year: '2026'
+      }
+    )
+  })
+
+  // Post Mode and Wall View Modal States
+  const [isPostModeOpen, setIsPostModeOpen] = useState(false)
+  const [isWallModalOpen, setIsWallModalOpen] = useState(false)
 
   // Drawer & Tabs — defaults to 'crop' (Кадрирование) as requested
   const [activeTab, setActiveTab] = useState<EditorTab>(initialTab || 'crop')
@@ -245,9 +268,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
       aspectRatioLabel: selectedAspectRatio.name,
       scanPoints,
       fixedCropArea,
-      drawerHeight
+      drawerHeight,
+      fileName,
+      artworkInfo
     })
-  }, [initialImageUrl, artworkId, adjustments, activeTab, cropMode, selectedAspectRatio, scanPoints, fixedCropArea, drawerHeight])
+  }, [initialImageUrl, artworkId, adjustments, activeTab, cropMode, selectedAspectRatio, scanPoints, fixedCropArea, drawerHeight, fileName, artworkInfo])
 
   // Adjustments History
   const handleAdjustmentsChange = (nextAdj: LightroomAdjustments) => {
@@ -319,13 +344,15 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const dataUrl = canvas.toDataURL('image/jpeg', 0.88)
     saveArtworkToHistory({
       id: artworkId,
-      title: 'Отредактированное изображение',
+      title: artworkInfo.title || 'Отредактированное изображение',
       dataUrl,
       originalUrl: initialImageUrl,
       adjustments,
       timestamp: Date.now(),
       width: canvas.width,
-      height: canvas.height
+      height: canvas.height,
+      fileName,
+      artworkInfo
     })
     loadHistory()
   }
@@ -335,9 +362,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
     if (!canvasRef.current) return
     const canvas = canvasRef.current
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0)
+    const rawName = artworkInfo.title?.trim() || fileName?.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
+    const safeName = rawName.replace(/[/\\?%*:|"<>]/g, '-')
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `artwork_${Date.now()}.jpg`
+    a.download = `${safeName}.jpg`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -722,8 +751,43 @@ export const EditorView: React.FC<EditorViewProps> = ({
           </button>
         </div>
 
-        {/* Right: Direct Download & Export */}
+        {/* Right: Mode Toggles, Direct Download & Export */}
         <div className="flex items-center gap-1.5">
+          {/* Post Mode Button */}
+          <button
+            onClick={() => setIsPostModeOpen(true)}
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
+            title="Режим публикации (пост)"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="0" />
+              <line x1="7" y1="16" x2="17" y2="16" />
+              <line x1="9" y1="19" x2="15" y2="19" />
+              <rect x="6" y="6" width="12" height="7" />
+            </svg>
+          </button>
+
+          {/* View on Wall Button */}
+          <button
+            onClick={() => setIsWallModalOpen(true)}
+            className="w-8 h-8 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
+            title="Примерка на стене"
+          >
+            <img
+              src="/images/gallery.svg"
+              alt=""
+              className="w-4 h-4 opacity-75 group-hover:opacity-100 transition-opacity"
+            />
+          </button>
+
           <button
             onClick={handleDirectDownload}
             className="w-8 h-8 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
@@ -758,6 +822,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                       setAdjustments(item.adjustments)
                       setHistory([item.adjustments])
                       setHistoryIndex(0)
+                    }
+                    if (item.fileName) {
+                      setFileName(item.fileName)
+                    }
+                    if (item.artworkInfo) {
+                      setArtworkInfo(item.artworkInfo)
                     }
                     initCropBounds(img.naturalWidth, img.naturalHeight)
                     resetViewport(img.naturalWidth, img.naturalHeight)
@@ -1080,6 +1150,32 @@ export const EditorView: React.FC<EditorViewProps> = ({
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         canvas={canvasRef.current}
+        originalFileName={fileName}
+        artworkTitle={artworkInfo.title}
+      />
+
+      {/* Post Mode View (Exact layout & typography from ourdynasty) */}
+      <PostModeView
+        isOpen={isPostModeOpen}
+        imageSrc={canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl}
+        artworkInfo={artworkInfo}
+        onUpdateArtworkInfo={(updated) => {
+          setArtworkInfo(updated)
+        }}
+        onClose={() => setIsPostModeOpen(false)}
+      />
+
+      {/* Wall View Modal (Interactive AR / Wall preview from ourdynasty) */}
+      <WallViewModal
+        isOpen={isWallModalOpen}
+        onClose={() => setIsWallModalOpen(false)}
+        imageSrc={canvasRef.current?.toDataURL('image/jpeg', 0.95) || initialImageUrl}
+        title={artworkInfo.title || 'Картина'}
+        dimensions={
+          [artworkInfo.medium, artworkInfo.dimensions, artworkInfo.year]
+            .filter(Boolean)
+            .join(' · ')
+        }
       />
     </div>
   )

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { LandingUpload } from './components/LandingUpload'
 import { EditorView } from './components/EditorView'
-import { LightroomAdjustments, EditorTab, ScanPoint, CropArea } from './types'
+import { LightroomAdjustments, EditorTab, ScanPoint, CropArea, ArtworkInfo } from './types'
 import { getEditorSession, clearEditorSession, EditorSessionData } from './lib/history-storage'
 
 export function App() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [selectedAdjustments, setSelectedAdjustments] = useState<LightroomAdjustments | undefined>(undefined)
   const [selectedArtworkId, setSelectedArtworkId] = useState<string | undefined>(undefined)
+  const [selectedFileName, setSelectedFileName] = useState<string | undefined>(undefined)
+  const [selectedArtworkInfo, setSelectedArtworkInfo] = useState<ArtworkInfo | undefined>(undefined)
 
   // Restored Session Properties
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null)
@@ -22,6 +24,8 @@ export function App() {
           setSelectedImage(session.imageUrl)
           setSelectedAdjustments(session.adjustments)
           setSelectedArtworkId(session.artworkId)
+          setSelectedFileName(session.fileName)
+          setSelectedArtworkInfo(session.artworkInfo)
         }
       } catch (e) {
         console.warn('Session restoration failed:', e)
@@ -32,11 +36,19 @@ export function App() {
     restoreSession()
   }, [])
 
-  const handleSelect = (url: string, adj?: LightroomAdjustments, id?: string) => {
+  const handleSelect = (
+    url: string,
+    adj?: LightroomAdjustments,
+    id?: string,
+    fileName?: string,
+    artworkInfo?: ArtworkInfo
+  ) => {
     setSessionData(null)
     setSelectedImage(url)
     setSelectedAdjustments(adj)
     setSelectedArtworkId(id)
+    setSelectedFileName(fileName)
+    setSelectedArtworkInfo(artworkInfo)
   }
 
   const handleBack = async () => {
@@ -45,6 +57,8 @@ export function App() {
     setSelectedImage(null)
     setSelectedAdjustments(undefined)
     setSelectedArtworkId(undefined)
+    setSelectedFileName(undefined)
+    setSelectedArtworkInfo(undefined)
   }
 
   if (isSessionLoading) {
@@ -59,6 +73,8 @@ export function App() {
           initialImageUrl={selectedImage}
           initialAdjustments={selectedAdjustments}
           initialArtworkId={selectedArtworkId}
+          initialFileName={selectedFileName || sessionData?.fileName}
+          initialArtworkInfo={selectedArtworkInfo || sessionData?.artworkInfo}
           initialTab={sessionData?.activeTab as EditorTab | undefined}
           initialCropMode={sessionData?.cropMode}
           initialScanPoints={sessionData?.scanPoints as ScanPoint[] | undefined}
