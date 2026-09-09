@@ -100,6 +100,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
       return []
     }
   })
+  const [activePresetId, setActivePresetId] = useState<string | null>(null)
   const [isSavingPreset, setIsSavingPreset] = useState(false)
   const [newPresetName, setNewPresetName] = useState('')
   const [selectedPresetCategory, setSelectedPresetCategory] = useState<string>('Все')
@@ -191,6 +192,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
   }
 
   const handleApplyPreset = (preset: Preset) => {
+    setActivePresetId(preset.id)
     onChange({
       ...adjustments,
       ...preset.adjustments,
@@ -954,6 +956,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
             <PresetGroups
               selectedPresetCategory={selectedPresetCategory}
               customPresets={customPresets}
+              activePresetId={activePresetId}
               onApply={handleApplyPreset}
               onDelete={handleDeleteCustomPreset}
             />
@@ -974,9 +977,10 @@ const BUILTIN_CATEGORIES = ['Плёнка', 'Слайд', 'Монохром', '�
 const PresetGroups: React.FC<{
   selectedPresetCategory: string
   customPresets: Preset[]
+  activePresetId: string | null
   onApply: (preset: Preset) => void
   onDelete: (id: string, e: React.MouseEvent) => void
-}> = ({ selectedPresetCategory, customPresets, onApply, onDelete }) => {
+}> = ({ selectedPresetCategory, customPresets, activePresetId, onApply, onDelete }) => {
   // Track the furthest visible preset index in the catalog (defaults to initial 4 visible cards)
   const [maxVisibleIndex, setMaxVisibleIndex] = useState(3)
 
@@ -1014,6 +1018,7 @@ const PresetGroups: React.FC<{
                     key={preset.id}
                     preset={preset}
                     index={idx}
+                    isActive={activePresetId === preset.id}
                     shouldLoad={idx <= maxVisibleIndex + 4}
                     onIntersect={() => handleCardIntersect(idx)}
                     onApply={onApply}
@@ -1049,6 +1054,7 @@ const PresetGroups: React.FC<{
                     key={preset.id}
                     preset={preset}
                     index={idx}
+                    isActive={activePresetId === preset.id}
                     shouldLoad={idx <= maxVisibleIndex + 4}
                     onIntersect={() => handleCardIntersect(idx)}
                     onApply={onApply}
@@ -1067,10 +1073,11 @@ const PresetNatureCard: React.FC<{
   preset: Preset
   index: number
   shouldLoad: boolean
+  isActive: boolean
   onIntersect: () => void
   onApply: (preset: Preset) => void
   onDelete?: (id: string, e: React.MouseEvent) => void
-}> = ({ preset, shouldLoad, onIntersect, onApply, onDelete }) => {
+}> = ({ preset, shouldLoad, isActive, onIntersect, onApply, onDelete }) => {
   const [thumbSrc, setThumbSrc] = useState<string>('')
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -1105,14 +1112,25 @@ const PresetNatureCard: React.FC<{
     <div
       ref={cardRef}
       onClick={() => onApply(preset)}
-      className="group relative flex flex-col bg-white border border-[#e3dbdc] hover:border-[#34292a] overflow-hidden text-left transition-colors cursor-pointer"
+      className={`group relative flex flex-col bg-white overflow-hidden text-left transition-all cursor-pointer ${
+        isActive
+          ? 'border-2 border-[#0f0b0c] shadow-xs bg-[#faf8f8]'
+          : 'border border-[#e3dbdc] hover:border-[#34292a]'
+      }`}
     >
       <div className="w-full aspect-[4/3] bg-[#f0eded] relative overflow-hidden">
+        {isActive && (
+          <div className="absolute top-1.5 left-1.5 z-10 w-5 h-5 bg-[#0f0b0c] text-white flex items-center justify-center shadow-xs">
+            <Check className="w-3 h-3 stroke-[2.5]" />
+          </div>
+        )}
         {thumbSrc ? (
           <img
             src={thumbSrc}
             alt={preset.name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              isActive ? 'scale-105' : 'group-hover:scale-105'
+            }`}
             loading="lazy"
           />
         ) : (
@@ -1134,7 +1152,9 @@ const PresetNatureCard: React.FC<{
       </div>
 
       <div className="p-2 flex flex-col min-w-0">
-        <span className="text-xs font-normal text-[#0f0b0c] truncate group-hover:text-[#34292a]">
+        <span className={`text-xs truncate transition-colors ${
+          isActive ? 'font-medium text-[#0f0b0c]' : 'font-normal text-[#0f0b0c] group-hover:text-[#34292a]'
+        }`}>
           {preset.name}
         </span>
         <span className="text-xs text-[#565051] truncate mt-0.5">

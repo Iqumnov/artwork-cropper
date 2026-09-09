@@ -9,7 +9,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-  Plus
+  Plus,
+  Check
 } from 'lucide-react'
 import {
   LightroomAdjustments,
@@ -167,6 +168,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   // Modals & Drawers
   const [showExportModal, setShowExportModal] = useState(false)
+  const [isDirectDownloaded, setIsDirectDownloaded] = useState(false)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
   const [historyItems, setHistoryItems] = useState<HistoryArtwork[]>([])
 
@@ -692,8 +694,18 @@ export const EditorView: React.FC<EditorViewProps> = ({
     renderCanvas(false)
     const canvas = canvasRef.current
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0)
-    const rawName = artworkInfo.title?.trim() || fileName?.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
-    const safeName = rawName.replace(/[/\\?%*:|"<>]/g, '-')
+    
+    // Construct metadata-rich file name separated by '_'
+    const parts: string[] = []
+    const cleanTitle = artworkInfo.title?.trim() || fileName?.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
+    if (cleanTitle) parts.push(cleanTitle)
+    if (artworkInfo.artist?.trim()) parts.push(artworkInfo.artist.trim())
+    if (artworkInfo.medium?.trim()) parts.push(artworkInfo.medium.trim())
+    if (artworkInfo.dimensions?.trim()) parts.push(artworkInfo.dimensions.trim())
+    if (artworkInfo.year?.trim()) parts.push(artworkInfo.year.trim())
+    const rawName = parts.join('_')
+    const safeName = rawName.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim()
+
     const a = document.createElement('a')
     a.href = dataUrl
     a.download = `${safeName}.jpg`
@@ -702,6 +714,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
     document.body.removeChild(a)
 
     saveSnapshotToHistory()
+
+    // Positive interface feedback: show affirmative checkmark
+    setIsDirectDownloaded(true)
+    setTimeout(() => setIsDirectDownloaded(false), 1500)
 
     // Auto-advance to next image in queue immediately RIGHT as download is clicked!
     if (onNextImage && queueTotal && queueTotal > 1 && (queueCurrentIndex ?? 0) < queueTotal - 1) {
@@ -1498,22 +1514,26 @@ export const EditorView: React.FC<EditorViewProps> = ({
           {/* View on Wall Button */}
           <button
             onClick={handleOpenWallView}
-            className="hidden sm:flex w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
+            className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-[#e3dbdc] hover:border-[#34292a] bg-transparent flex items-center justify-center text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer group"
             title="Примерка на стене"
           >
             <img
               src="/images/gallery.svg"
-              alt=""
-              className="w-4 h-4 opacity-75 group-hover:opacity-100 transition-opacity"
+              alt="Примерка на стене"
+              className="w-4 h-4 opacity-80 group-hover:opacity-100 transition-opacity"
             />
           </button>
 
           <button
             onClick={handleDirectDownload}
             className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] text-[#faf8f8] flex items-center justify-center transition-colors cursor-pointer"
-            title="Быстрое скачивание (переход к след. фото)"
+            title={isDirectDownloaded ? 'Успешно скачано!' : 'Быстрое скачивание (переход к след. фото)'}
           >
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            {isDirectDownloaded ? (
+              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 stroke-[2.5]" />
+            ) : (
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            )}
           </button>
 
           <button

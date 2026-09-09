@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 import { ArtworkInfo } from '../types'
 
 interface ExportModalProps {
@@ -116,6 +116,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg')
   const [quality, setQuality] = useState(1.0)
   const [copied, setCopied] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [estimatedSize, setEstimatedSize] = useState<string>('')
   const [isExportAsPost, setIsExportAsPost] = useState(false)
 
@@ -140,13 +141,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   }, [isOpen, artworkInfo, artworkTitle])
 
-  const handleInfoChange = (field: keyof ArtworkInfo, value: string) => {
-    const updated = { ...localInfo, [field]: value }
-    setLocalInfo(updated)
-    if (onUpdateArtworkInfo) {
-      onUpdateArtworkInfo(updated)
-    }
-  }
+  // Ref to track whether user explicitly changed the file name manually
+  const isCustomFileNameRef = useRef(false)
 
   // Clean original file name (remove extension)
   const getCleanOriginalName = () => {
@@ -154,23 +150,55 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     return originalFileName.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
   }
 
-  // Initial file name: prioritizes artworkTitle, then originalFileName
-  const getDefaultName = () => {
-    const title = localInfo.title || artworkTitle
-    if (title && title.trim().length > 0) {
-      return title.trim()
-    }
-    return getCleanOriginalName()
+  // Generate filename joining all available metadata via '_'
+  const generateMetadataFileName = (info: ArtworkInfo) => {
+    const parts: string[] = []
+    const rawTitle = info.title?.trim() || artworkTitle?.trim() || getCleanOriginalName()
+    if (rawTitle) parts.push(rawTitle)
+    if (info.artist?.trim()) parts.push(info.artist.trim())
+    if (info.medium?.trim()) parts.push(info.medium.trim())
+    if (info.dimensions?.trim()) parts.push(info.dimensions.trim())
+    if (info.year?.trim()) parts.push(info.year.trim())
+
+    return parts.join('_')
   }
 
-  const [fileName, setFileName] = useState<string>(getDefaultName)
+  const [fileName, setFileName] = useState<string>(() => generateMetadataFileName(localInfo))
 
   // Reset file name when modal opens or inputs change
   useEffect(() => {
     if (isOpen) {
-      setFileName(getDefaultName())
+      isCustomFileNameRef.current = false
+      const current = artworkInfo
+        ? {
+            title: artworkInfo.title || artworkTitle || '',
+            artist: artworkInfo.artist || '',
+            medium: artworkInfo.medium || '',
+            dimensions: artworkInfo.dimensions || '',
+            year: artworkInfo.year || '',
+          }
+        : {
+            title: artworkTitle || '',
+            artist: '',
+            medium: '',
+            dimensions: '',
+            year: '',
+          }
+      setLocalInfo(current)
+      setFileName(generateMetadataFileName(current))
     }
-  }, [isOpen, artworkTitle, originalFileName])
+  }, [isOpen, artworkInfo, artworkTitle, originalFileName])
+
+  const handleInfoChange = (field: keyof ArtworkInfo, value: string) => {
+    const updated = { ...localInfo, [field]: value }
+    setLocalInfo(updated)
+    if (onUpdateArtworkInfo) {
+      onUpdateArtworkInfo(updated)
+    }
+    if (!isCustomFileNameRef.current) {
+      setFileName(generateMetadataFileName(updated))
+    }
+  }
 
   // Get final active canvas (post canvas or direct artwork canvas)
   const activeCanvas = useMemo(() => {
@@ -186,11 +214,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     activeCanvas.toBlob(
       (blob) => {
         if (blob) {
-          const kb = blob.size / 1024
-          if (kb >= 1024) {
-            setEstimatedSize(`${(kb / 1024).toFixed(2)} МБ`)
+          const bytes = blob.size
+          if (bytes >= 1024 * 1024) {
+            setEstimatedSize(`${(bytes / (1024 * 1024)).toFixed(2)} МБ`)
+          } else if (bytes >= 1024) {
+            setEstimatedSize(`${(bytes / 1024).toFixed(1)} КБ`)
           } else {
-            setEstimatedSize(`${Math.round(kb)} КБ`)
+            setEstimatedSize(`${bytes} Б`)
           }
         }
       },
@@ -206,21 +236,38 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
 
   const handleDownload = () => {
-    if (!activeCanvas) return
-    const safeName = (fileName.trim() || getDefaultName()).replace(/[/\\?%*:|"<>]/g, '-')
-    const dataUrl = activeCanvas.toDataURL(format, quality)
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = `${safeName}.${ext}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    if (onExportComplete) onExportComplete()
-    onClose()
+    if (!activeCanvas || isExporting) return
+    setIsExporting(true)
+    const fallbackName = generateMetadataFileName(localInfo)
+    const baseName = fileName.trim() || fallbackName
+    const safeName = baseName.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim()
+
+    activeCanvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setIsExporting(false)
+          return
+        }
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${safeName}.${ext}`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setIsExporting(false)
+        if (onExportComplete) onExportComplete()
+        onClose()
+      },
+      format,
+      quality
+    )
   }
 
   const handleResetToOriginal = () => {
-    setFileName(getCleanOriginalName())
+    isCustomFileNameRef.current = false
+    setFileName(generateMetadataFileName(localInfo))
   }
 
   const handleCopyToClipboard = async () => {
@@ -252,7 +299,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 Экспорт работы
               </h3>
               <p className="text-xs text-[#565051] font-mono mt-0.5">
-                {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ~${estimatedSize}` : ''}
+                {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ${estimatedSize}` : ''}
               </p>
             </div>
             {queueTotal && queueTotal > 1 ? (
@@ -402,13 +449,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <input
               type="text"
               value={fileName}
-              onChange={(e) => setFileName(e.target.value)}
+              onChange={(e) => {
+                isCustomFileNameRef.current = true
+                setFileName(e.target.value)
+              }}
               placeholder="Введите название..."
-              className="flex-1 px-2.5 py-1.5 text-xs text-[#0f0b0c] bg-transparent outline-none border-none"
+              className="w-full px-2.5 py-1.5 text-xs text-[#0f0b0c] bg-transparent outline-none border-none"
             />
-            <span className="px-2 text-xs font-mono text-[#565051] select-none bg-[#faf8f8] border-l border-[#e3dbdc] py-1.5">
-              .{ext}
-            </span>
           </div>
         </div>
 
@@ -459,22 +506,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         )}
 
-        {/* Dynamic Estimated Size readout */}
-        <div className="flex items-center justify-between text-xs pt-0.5">
-          <span className="text-[#565051]">Примерный размер:</span>
-          <span className="font-mono text-[#0f0b0c] font-normal">
-            {estimatedSize || 'расчёт...'}
-          </span>
-        </div>
-
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-1">
           <button
             onClick={handleDownload}
-            className="w-full py-2.5 bg-[#0f0b0c] hover:bg-[#34292a] border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            disabled={isExporting}
+            className="w-full py-2.5 bg-[#0f0b0c] hover:bg-[#34292a] disabled:bg-[#34292a]/80 border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" />
-            <span>Скачать {isExportAsPost ? 'карточку поста' : 'файл'}</span>
+            {isExporting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Сохранение файла...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Скачать {isExportAsPost ? 'карточку поста' : 'файл'}</span>
+              </>
+            )}
           </button>
 
           <button

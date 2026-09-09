@@ -1,4 +1,4 @@
-const CACHE_NAME = 'photo-editor-cache-v1'
+const CACHE_NAME = 'photo-editor-cache-v3'
 
 const PRECACHE_ASSETS = [
   '/',
@@ -12,20 +12,32 @@ const PRECACHE_ASSETS = [
   '/gloriascript.ttf',
   '/EBGaramond-VariableFont_wght.ttf',
   '/EBGaramond-Italic-VariableFont_wght.ttf',
-  '/nature_landscape.jpg',
+  '/nature_landscape.webp',
   '/images/gallery.svg',
   '/images/switch.svg',
   '/images/cross.svg',
+  /* __VITE_PRECACHE_ASSETS__ */
 ]
 
-// Install: Cache core assets and activate immediately
+// Install: Cache all core assets and activate immediately
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      .then(async (cache) => {
+        // Cache assets resiliently so one missing file never breaks the whole PWA install
+        const uniqueAssets = Array.from(new Set(PRECACHE_ASSETS.filter(Boolean)))
+        await Promise.allSettled(
+          uniqueAssets.map(async (asset) => {
+            try {
+              await cache.add(asset)
+            } catch (err) {
+              console.warn(`[PWA] Pre-cache skipped for ${asset}:`, err)
+            }
+          })
+        )
+      })
       .then(() => self.skipWaiting())
-      .catch((err) => console.warn('Pre-cache error:', err))
   )
 })
 
@@ -45,14 +57,14 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-// Fetch: Stale-While-Revalidate strategy for assets, Network-first for navigation
+// Fetch: Cache-First for static assets, Network-First with Offline fallback for navigation
 self.addEventListener('fetch', (event) => {
   const request = event.request
   if (request.method !== 'GET') return
 
   const url = new URL(request.url)
 
-  // Navigation requests (HTML)
+  // 1. Navigation requests (SPA page load / reload)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -64,32 +76,41 @@ self.addEventListener('fetch', (event) => {
           return response
         })
         .catch(async () => {
-          const cached = await caches.match(request)
+          // Offline fallback: serve cached index.html
+          const cached =
+            (await caches.match(request)) ||
+            (await caches.match('/index.html')) ||
+            (await caches.match('/'))
           if (cached) return cached
-          return caches.match('/')
+          return new Response('Офлайн-режим: страница не найдена в кэше', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          })
         })
     )
     return
   }
 
-  // Static Assets & Media
+  // 2. Static Assets (JS bundles, CSS, Fonts, Images, SVGs)
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
+      // Instant response from cache (0ms)
+      if (cachedResponse) {
+        return cachedResponse
+      }
+
+      // Cache miss: fetch from network and store in cache for future offline usage
+      return fetch(request)
         .then((networkResponse) => {
-          if (
-            networkResponse &&
-            networkResponse.status === 200 &&
-            (url.origin === self.location.origin || url.hostname.includes('fonts.gstatic.com') || url.hostname.includes('docs.opencv.org'))
-          ) {
+          if (networkResponse && networkResponse.status === 200 && url.origin === self.location.origin) {
             const clone = networkResponse.clone()
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
           }
           return networkResponse
         })
-        .catch(() => cachedResponse)
-
-      return cachedResponse || fetchPromise
+        .catch(() => {
+          return new Response('', { status: 408, statusText: 'Offline Asset Unavailable' })
+        })
     })
   )
 })

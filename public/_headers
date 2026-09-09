@@ -1,0 +1,38 @@
+# Global Security Headers
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  X-XSS-Protection: 1; mode=block
+
+# Immutable Vite hashed bundles (JS, CSS)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fonts - Cached forever & CORS enabled
+/*.ttf
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+# Service Worker - always revalidate
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# HTML & WebManifest - revalidate on deploy
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Media assets & Icons
+/icons/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/images/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/nature_landscape.webp
+  Cache-Control: public, max-age=2592000, immutable
