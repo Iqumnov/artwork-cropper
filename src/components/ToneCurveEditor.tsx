@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react'
+import React, { useRef, useState, useMemo } from 'react'
 import { ToneCurvePoint } from '../types'
 import { RotateCcw } from 'lucide-react'
 
@@ -26,50 +26,82 @@ export const ToneCurveEditor: React.FC<ToneCurveEditorProps> = ({
       ? '#2563eb'
       : '#0f0b0c'
 
-  // Monotone cubic spline interpolation for smooth curve
-  const getSplineLUT = useCallback((pts: ToneCurvePoint[]): number[] => {
-    const sorted = [...pts].sort((a, b) => a.x - b.x)
-    const lut: number[] = new Array(256)
-
+  // Precompute 100% vector SVG cubic Bézier path — true GPU-rendered vector curve
+  const curvePathData = useMemo(() => {
+    const sorted = [...points].sort((a, b) => a.x - b.x)
     if (sorted.length === 0) {
-      for (let i = 0; i < 256; i++) lut[i] = i
-      return lut
+      return 'M 0 255 L 255 0'
     }
-
     if (sorted.length === 1) {
-      for (let i = 0; i < 256; i++) lut[i] = sorted[0].y
-      return lut
+      const sy = 255 - sorted[0].y
+      return `M 0 ${sy} L 255 ${sy}`
     }
 
-    for (let i = 0; i < 256; i++) {
-      if (i <= sorted[0].x) {
-        lut[i] = sorted[0].y
-      } else if (i >= sorted[sorted.length - 1].x) {
-        lut[i] = sorted[sorted.length - 1].y
+    const n = sorted.length
+    const deltas: number[] = new Array(n - 1)
+    for (let i = 0; i < n - 1; i++) {
+      const dx = sorted[i + 1].x - sorted[i].x
+      deltas[i] = dx === 0 ? 0 : (sorted[i + 1].y - sorted[i].y) / dx
+    }
+
+    const m: number[] = new Array(n)
+    m[0] = deltas[0]
+    m[n - 1] = deltas[n - 2]
+    for (let i = 1; i < n - 1; i++) {
+      m[i] = (deltas[i - 1] + deltas[i]) / 2
+    }
+
+    for (let i = 0; i < n - 1; i++) {
+      if (Math.abs(deltas[i]) < 1e-6) {
+        m[i] = 0
+        m[i + 1] = 0
       } else {
-        for (let s = 0; s < sorted.length - 1; s++) {
-          if (i >= sorted[s].x && i <= sorted[s + 1].x) {
-            const t = (i - sorted[s].x) / (sorted[s + 1].x - sorted[s].x)
-            const smoothT = t * t * (3 - 2 * t)
-            lut[i] = Math.round(sorted[s].y + (sorted[s + 1].y - sorted[s].y) * smoothT)
-            break
-          }
+        const alpha = m[i] / deltas[i]
+        const beta = m[i + 1] / deltas[i]
+        if (alpha < 0) m[i] = 0
+        if (beta < 0) m[i + 1] = 0
+        const hyp = alpha * alpha + beta * beta
+        if (hyp > 9) {
+          const tau = 3 / Math.sqrt(hyp)
+          m[i] = tau * alpha * deltas[i]
+          m[i + 1] = tau * beta * deltas[i]
         }
       }
     }
-    return lut
-  }, [])
 
-  // Precompute smooth vector SVG path
-  const curvePathData = useMemo(() => {
-    const lut = getSplineLUT(points)
     let d = ''
-    for (let x = 0; x < 256; x++) {
-      const y = 255 - lut[x]
-      d += x === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`
+    const p0 = sorted[0]
+    if (p0.x > 0) {
+      d += `M 0 ${(255 - p0.y).toFixed(2)} L ${p0.x} ${(255 - p0.y).toFixed(2)} `
+    } else {
+      d += `M ${p0.x} ${(255 - p0.y).toFixed(2)} `
     }
-    return d
-  }, [points, getSplineLUT])
+
+    for (let i = 0; i < n - 1; i++) {
+      const pA = sorted[i]
+      const pB = sorted[i + 1]
+      const dx = pB.x - pA.x
+
+      const cp1x = pA.x + dx / 3
+      const cp1y = pA.y + m[i] * (dx / 3)
+
+      const cp2x = pB.x - dx / 3
+      const cp2y = pB.y - m[i + 1] * (dx / 3)
+
+      const svgCp1y = 255 - cp1y
+      const svgCp2y = 255 - cp2y
+      const svgPBy = 255 - pB.y
+
+      d += `C ${cp1x.toFixed(2)} ${svgCp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${svgCp2y.toFixed(2)}, ${pB.x} ${svgPBy.toFixed(2)} `
+    }
+
+    const pLast = sorted[n - 1]
+    if (pLast.x < 255) {
+      d += `L 255 ${(255 - pLast.y).toFixed(2)}`
+    }
+
+    return d.trim()
+  }, [points])
 
   // Coordinate mapper from client coordinates to 0..255 SVG space
   const getSvgCoords = (clientX: number, clientY: number) => {
@@ -166,6 +198,7 @@ export const ToneCurveEditor: React.FC<ToneCurveEditorProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          shapeRendering="geometricPrecision"
         >
           {/* Background fill */}
           <rect x="0" y="0" width="255" height="255" fill="#ffffff" />
@@ -191,15 +224,16 @@ export const ToneCurveEditor: React.FC<ToneCurveEditorProps> = ({
             vectorEffect="non-scaling-stroke"
           />
 
-          {/* Vector Spline Curve Path */}
+          {/* Vector Spline Curve Path — True 100% Vector Cubic Bezier */}
           <path
             d={curvePathData}
             fill="none"
             stroke={channelStroke}
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
+            shapeRendering="geometricPrecision"
           />
 
           {/* Interactive Control Points */}

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Upload, Camera, Loader2 } from 'lucide-react'
 import { CameraCaptureModal } from './CameraCaptureModal'
-import { generateSampleArtwork } from '../lib/sample-images'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
 import { getArtworkHistory, deleteArtworkFromHistory, clearArtworkHistory, HistoryArtwork } from '../lib/history-storage'
 import { loadAnyImageFile } from '../lib/image-loader'
@@ -135,29 +134,6 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
     }
   }
 
-  const handleLoadSample = (type: 'fine-art' | 'modern' | 'document') => {
-    const sampleDataUrl = generateSampleArtwork(type)
-    if (sampleDataUrl) {
-      onImageSelect(sampleDataUrl)
-    }
-  }
-
-  const handleLoadBatchSample = () => {
-    const s1 = generateSampleArtwork('document')
-    const s2 = generateSampleArtwork('fine-art')
-    const s3 = generateSampleArtwork('modern')
-    const items: ImageQueueItem[] = [
-      { id: `sample_doc_${Date.now()}`, url: s1, fileName: 'sample-document-crop.jpg', artworkInfo: { title: 'Скан каталога', artist: 'Архив', medium: 'Документ' } },
-      { id: `sample_fine_${Date.now()}`, url: s2, fileName: 'sample-fine-art.jpg', artworkInfo: { title: 'Масляный портрет', artist: 'Классик', medium: 'Холст, масло' } },
-      { id: `sample_mod_${Date.now()}`, url: s3, fileName: 'sample-modern-art.jpg', artworkInfo: { title: 'Современный арт', artist: 'Модерн', medium: 'Акрил' } }
-    ]
-    if (onImagesSelect) {
-      onImagesSelect(items)
-    } else {
-      onImageSelect(items[0].url, undefined, items[0].id, items[0].fileName, items[0].artworkInfo)
-    }
-  }
-
   return (
     <div className="h-full w-full max-h-[100dvh] flex flex-col justify-between overflow-hidden bg-[#faf8f8] text-[#0f0b0c] p-3 sm:p-5 select-none relative">
       {/* Loading Overlay */}
@@ -250,50 +226,6 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
           </div>
         )}
       </main>
-
-      {/* Quick Test Samples Shelf */}
-      <footer className="w-full max-w-2xl mx-auto pt-1 pb-0 shrink-0">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-normal tracking-widest uppercase text-[#565051]">
-            Тестовые образцы
-          </span>
-          <span className="text-xs text-[#565051]">клик для загрузки</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-          <button
-            onClick={() => handleLoadSample('document')}
-            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
-          >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Скан каталога</div>
-            <p className="text-xs text-[#565051] truncate">Тест перспективы</p>
-          </button>
-
-          <button
-            onClick={() => handleLoadSample('fine-art')}
-            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
-          >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Масляный портрет</div>
-            <p className="text-xs text-[#565051] truncate">Тональность кожи</p>
-          </button>
-
-          <button
-            onClick={() => handleLoadSample('modern')}
-            className="group p-2 sm:p-2.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white/60 hover:bg-white text-left transition-colors cursor-pointer"
-          >
-            <div className="text-xs text-[#0f0b0c] mb-0.5 truncate font-normal">Современный арт</div>
-            <p className="text-xs text-[#565051] truncate">Хроматика цвета</p>
-          </button>
-
-          <button
-            onClick={handleLoadBatchSample}
-            className="group p-2 sm:p-2.5 border border-[#34292a] bg-[#0f0b0c] text-[#faf8f8] hover:bg-[#34292a] text-left transition-colors cursor-pointer shadow-xs"
-          >
-            <div className="text-xs text-[#faf8f8] mb-0.5 truncate font-medium">Серия (3 работы)</div>
-            <p className="text-xs text-[#e3dbdc] truncate">Пакетный режим</p>
-          </button>
-        </div>
-      </footer>
 
       {/* In-App Camera Viewfinder Modal */}
       <CameraCaptureModal

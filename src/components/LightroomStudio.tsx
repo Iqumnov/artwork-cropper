@@ -118,6 +118,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
 
+  const resizeRafRef = useRef<number | null>(null)
   const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isResizingRef.current) return
     e.preventDefault()
@@ -125,13 +126,23 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
     const deltaY = resizeStartYRef.current - e.clientY
     const minH = 160
     const maxH = Math.min(window.innerHeight - 70, 520)
-    const newH = Math.max(minH, Math.min(maxH, resizeStartHeightRef.current + deltaY))
-    onDrawerHeightChange(newH)
+    const newH = Math.round(Math.max(minH, Math.min(maxH, resizeStartHeightRef.current + deltaY)))
+    if (resizeRafRef.current !== null) {
+      cancelAnimationFrame(resizeRafRef.current)
+    }
+    resizeRafRef.current = requestAnimationFrame(() => {
+      onDrawerHeightChange(newH)
+      resizeRafRef.current = null
+    })
   }
 
   const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isResizingRef.current) return
     isResizingRef.current = false
+    if (resizeRafRef.current !== null) {
+      cancelAnimationFrame(resizeRafRef.current)
+      resizeRafRef.current = null
+    }
     try {
       if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
         ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)

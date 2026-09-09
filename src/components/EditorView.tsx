@@ -196,6 +196,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     initialMidX: number
     initialMidY: number
   } | null>(null)
+  const isDoubleTapZoomActiveRef = useRef(false)
 
   const cancelHoldTimer = useCallback(() => {
     if (holdTimerRef.current) {
@@ -281,7 +282,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setPan({ x: initialX, y: initialY })
   }, [])
 
-  // Clamp Pan so the image cannot be fully moved off-screen
+  // Clamp Pan: keeps image centered when at/below fit scale, and bounds panning when zoomed in
   const clampPan = useCallback((targetX: number, targetY: number, currentZoom: number) => {
     if (!viewportRef.current || !baseImage) return { x: targetX, y: targetY }
     const rect = viewportRef.current.getBoundingClientRect()
@@ -291,27 +292,38 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const renderedW = w * currentZoom
     const renderedH = h * currentZoom
 
-    // Keep at least 60px inside the visible viewport
-    const minX = -renderedW + 60
-    const maxX = rect.width - 60
-    const minY = -renderedH + 60
-    const maxY = rect.height - 60
+    let finalX = targetX
+    let finalY = targetY
 
-    return {
-      x: Math.max(minX, Math.min(maxX, targetX)),
-      y: Math.max(minY, Math.min(maxY, targetY))
+    if (renderedW <= rect.width) {
+      finalX = Math.round((rect.width - renderedW) / 2)
+    } else {
+      const minX = rect.width - renderedW
+      const maxX = 0
+      finalX = Math.max(minX, Math.min(maxX, targetX))
     }
+
+    if (renderedH <= rect.height) {
+      finalY = Math.round((rect.height - renderedH) / 2)
+    } else {
+      const minY = rect.height - renderedH
+      const maxY = 0
+      finalY = Math.max(minY, Math.min(maxY, targetY))
+    }
+
+    return { x: finalX, y: finalY }
   }, [baseImage])
 
-  // Double-tap on canvas: toggles between 100% (fit) and 2.5x zoom centered at tap
+  // Double-tap on canvas: zooms into 2.5x while held down, returns to 100% fit as soon as released
   const handleDoubleTap = useCallback((clientX: number, clientY: number) => {
     if (!viewportRef.current || !baseImage) return
     const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
     const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
 
-    const isAt100 = Math.abs(zoom - fitScaleRef.current) < 0.08 || Math.abs(zoom - 1.0) < 0.08
+    const isAtFit = Math.abs(zoom - fitScaleRef.current) < 0.08 || Math.abs(zoom - 1.0) < 0.08
 
-    if (isAt100) {
+    if (isAtFit) {
+      isDoubleTapZoomActiveRef.current = true
       const nextZoom = Math.min(6, Math.max(2.2, fitScaleRef.current * 2.5))
       const rect = viewportRef.current.getBoundingClientRect()
       const originX = clientX - rect.left
@@ -324,6 +336,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       setZoom(nextZoom)
       setPan(clampPan(nextPanX, nextPanY, nextZoom))
     } else {
+      isDoubleTapZoomActiveRef.current = false
       resetViewport(imgW, imgH)
     }
   }, [zoom, pan, baseImage, resetViewport, clampPan])
@@ -369,14 +382,32 @@ export const EditorView: React.FC<EditorViewProps> = ({
   // Keep canvas centered when drawer height changes or window resizes
   useEffect(() => {
     if (!viewportRef.current || !baseImage) return
-    const ro = new ResizeObserver(() => {
-      const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
-      const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
-      resetViewport(w, h)
+    let lastWidth = viewportRef.current.clientWidth
+    let lastHeight = viewportRef.current.clientHeight
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width <= 0 || height <= 0) continue
+        const dw = width - lastWidth
+        const dh = height - lastHeight
+        lastWidth = width
+        lastHeight = height
+
+        // If slight vertical adjustment from footer drawer: simply shift pan Y by dh/2 to keep canvas centered without changing zoom!
+        if (Math.abs(dw) < 3 && Math.abs(dh) > 0) {
+          setPan(prev => ({ x: prev.x, y: prev.y + Math.round(dh / 2) }))
+        } else if (Math.abs(dw) >= 3) {
+          // Significant width or orientation change: re-fit
+          const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+          const h = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+          resetViewport(w, h)
+        }
+      }
     })
     ro.observe(viewportRef.current)
     return () => ro.disconnect()
-  }, [baseImage, resetViewport, drawerHeight])
+  }, [baseImage, resetViewport])
 
   // Fast low-overhead preview buffer for real-time 60 FPS slider dragging
   const previewSourceRef = useRef<HTMLCanvasElement | null>(null)
@@ -1174,6 +1205,16 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setIsPanning(false)
     setDraggingTarget(null)
     setLoupe(null)
+
+    // User requirement 4: double-tap zoom should NOT remain zoomed in - it should go back as soon as released!
+    if (isDoubleTapZoomActiveRef.current) {
+      isDoubleTapZoomActiveRef.current = false
+      if (baseImage) {
+        const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+        const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+        resetViewport(imgW, imgH)
+      }
+    }
   }
 
   // Window-level pointer tracking during active drag: prevents dropped events outside viewport
@@ -1293,7 +1334,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
       }
 
       setZoom(prevZoom => {
-        const nextZoom = Math.max(0.15, Math.min(8, prevZoom * factor))
+        const minZ = Math.max(0.01, fitScaleRef.current * 0.4)
+        const nextZoom = Math.max(minZ, Math.min(8, prevZoom * factor))
         setPan(prevPan => clampPan(prevPan.x, prevPan.y, nextZoom))
         return nextZoom
       })
@@ -1574,7 +1616,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
             if (initialDist <= 0 || !viewportRef.current) return
 
             const scaleRatio = dist / initialDist
-            const nextZoom = Math.max(0.15, Math.min(8, initialZoom * scaleRatio))
+            const minZ = Math.max(0.01, fitScaleRef.current * 0.4)
+            const nextZoom = Math.max(minZ, Math.min(8, initialZoom * scaleRatio))
 
             const vpRect = viewportRef.current.getBoundingClientRect()
             const focalX = initialMidX - vpRect.left
@@ -1597,6 +1640,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
           }
           if (e.touches.length === 0) {
             handlePointerUp()
+            // If user pinched out past fitScale, smoothly snap back to fitScale
+            if (zoom < fitScaleRef.current * 0.98 && baseImage) {
+              const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+              const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+              resetViewport(imgW, imgH)
+            }
           }
         }}
         onTouchCancel={() => {
@@ -1611,9 +1660,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
           </div>
         )}
 
-        {/* Transformed Image & Interactive Crop Coordinate Space (1px black border, NO shadow) */}
+        {/* Transformed Image & Interactive Crop Coordinate Space (1px black border, NO shadow, zero lag) */}
         <div
-          className="absolute top-0 left-0 origin-top-left border border-[#0f0b0c] transition-transform duration-75 ease-out"
+          className="absolute top-0 left-0 origin-top-left border border-[#0f0b0c] will-change-transform"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             width: w,
@@ -1826,9 +1875,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
           )}
         </div>
 
-        {/* Zoom percentage readout */}
+        {/* Zoom percentage readout relative to fit scale */}
         <div className="absolute bottom-2 left-3 z-10 text-[10px] font-mono text-[#565051] pointer-events-none">
-          {Math.round(zoom * 100)}%
+          {Math.round((zoom / (fitScaleRef.current || 1)) * 100)}%
         </div>
       </div>
 
