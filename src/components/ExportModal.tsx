@@ -30,15 +30,15 @@ function createPostCanvas(
   const ctx = canvas.getContext('2d')
   if (!ctx) return artworkCanvas
 
-  // Background matching design system #faf8f8
+  // Background matching design system #faf8f8 (museum warm ivory)
   ctx.fillStyle = '#faf8f8'
   ctx.fillRect(0, 0, postW, postH)
 
-  // Artwork Container: 74% of total height, with 64px margins
-  const marginX = 64
-  const marginTop = 64
-  const artAreaW = postW - marginX * 2
-  const artAreaH = Math.round(postH * 0.72)
+  // Artwork Container: 1056px width with 72px margins, maximum height 1120px
+  const marginX = 72
+  const marginTop = 72
+  const artAreaW = postW - marginX * 2 // 1056px
+  const artAreaH = 1120 // leaves 408px for caption and margins
 
   // Fit artwork preserving aspect ratio
   const artAspect = artworkCanvas.width / artworkCanvas.height
@@ -61,39 +61,64 @@ function createPostCanvas(
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(artworkCanvas, drawX, drawY, drawW, drawH)
 
-  // Captions Area below artwork
-  const captionsStartY = marginTop + artAreaH + 48
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  let currentY = captionsStartY
-
-  // Title: EBGaramond, bold, 38px, color #0f0b0c
-  if (info.title && info.title.trim()) {
-    ctx.font = '600 38px "EBGaramond", Georgia, serif'
-    ctx.fillStyle = '#0f0b0c'
-    ctx.fillText(info.title.trim(), postW / 2, currentY)
-    currentY += 46
-  }
-
-  // Artist: EBGaramond, normal, 26px, color #565051
-  if (info.artist && info.artist.trim()) {
-    ctx.font = '400 26px "EBGaramond", Georgia, serif'
-    ctx.fillStyle = '#565051'
-    ctx.fillText(info.artist.trim(), postW / 2, currentY)
-    currentY += 38
-  }
-
-  // Details: Medium · Dimensions · Year
+  // Details: Year · Medium · Dimensions (Strict order requested: artist, title, year, medium, dimensions)
   const detailsParts: string[] = []
+  if (info.year && info.year.trim()) detailsParts.push(info.year.trim())
   if (info.medium && info.medium.trim()) detailsParts.push(info.medium.trim())
   if (info.dimensions && info.dimensions.trim()) detailsParts.push(info.dimensions.trim())
-  if (info.year && info.year.trim()) detailsParts.push(info.year.trim())
+  const detailsText = detailsParts.join(' · ')
 
-  if (detailsParts.length > 0) {
-    ctx.font = '400 20px "EBGaramond", Georgia, serif'
+  const hasArtist = Boolean(info.artist && info.artist.trim())
+  const hasTitle = Boolean(info.title && info.title.trim())
+  const hasDetails = detailsParts.length > 0
+
+  // Calculate typography measurements for vertical balance
+  // Artist: 36px font, 48px line height
+  // Title: 48px italic font (NOT bold!), 58px line height
+  // Details: 28px font, 36px line height
+  const artistH = hasArtist ? 48 : 0
+  const titleH = hasTitle ? 58 : 0
+  const detailsH = hasDetails ? 36 : 0
+
+  const gapArtistTitle = hasArtist && hasTitle ? 14 : 0
+  const gapTitleDetails = (hasTitle || hasArtist) && hasDetails ? 16 : 0
+
+  const totalTextHeight = artistH + gapArtistTitle + titleH + gapTitleDetails + detailsH
+
+  // Dedicated caption zone between bottom of artwork area and bottom of post card
+  const actualArtworkBottom = drawY + drawH
+  const captionTop = Math.max(actualArtworkBottom + 40, marginTop + artAreaH)
+  const captionZoneH = postH - captionTop
+
+  // Center the text block optically inside the caption zone
+  let currentY = totalTextHeight > 0
+    ? captionTop + Math.max(20, Math.round((captionZoneH - totalTextHeight) / 2))
+    : captionTop
+
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+
+  // 1. Artist: EBGaramond, normal, 36px, color #565051
+  if (hasArtist) {
+    ctx.font = '400 36px "EBGaramond", "EB Garamond", Georgia, serif'
     ctx.fillStyle = '#565051'
-    ctx.fillText(detailsParts.join(' · '), postW / 2, currentY)
+    ctx.fillText(info.artist.trim(), postW / 2, currentY)
+    currentY += artistH + gapArtistTitle
+  }
+
+  // 2. Title: EBGaramond, normal (NOT BOLD!), italic, 48px, color #0f0b0c
+  if (hasTitle) {
+    ctx.font = 'italic 400 48px "EBGaramond", "EB Garamond", Georgia, serif'
+    ctx.fillStyle = '#0f0b0c'
+    ctx.fillText(info.title.trim(), postW / 2, currentY)
+    currentY += titleH + gapTitleDetails
+  }
+
+  // 3. Details: Year · Medium · Dimensions, EBGaramond, normal, 28px, color #565051
+  if (hasDetails) {
+    ctx.font = '400 28px "EBGaramond", "EB Garamond", Georgia, serif'
+    ctx.fillStyle = '#565051'
+    ctx.fillText(detailsText, postW / 2, currentY)
   }
 
   return canvas
@@ -151,14 +176,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }
 
   // Generate filename joining all available metadata via '_'
+  // Order: artist, artwork name, year, medium, dimensions
   const generateMetadataFileName = (info: ArtworkInfo) => {
     const parts: string[] = []
+    if (info.artist?.trim()) parts.push(info.artist.trim())
     const rawTitle = info.title?.trim() || artworkTitle?.trim() || getCleanOriginalName()
     if (rawTitle) parts.push(rawTitle)
-    if (info.artist?.trim()) parts.push(info.artist.trim())
+    if (info.year?.trim()) parts.push(info.year.trim())
     if (info.medium?.trim()) parts.push(info.medium.trim())
     if (info.dimensions?.trim()) parts.push(info.dimensions.trim())
-    if (info.year?.trim()) parts.push(info.year.trim())
 
     return parts.join('_')
   }
@@ -299,7 +325,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 Экспорт работы
               </h3>
               <p className="text-xs text-[#565051] font-mono mt-0.5">
-                {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `• ${estimatedSize}` : ''}
+                {width} × {height} px {isExportAsPost ? '(Пост 3:4) ' : ''}{estimatedSize ? `· ${estimatedSize}` : ''}
               </p>
             </div>
             {queueTotal && queueTotal > 1 ? (
@@ -368,17 +394,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-[#565051]">Название работы</label>
-                <input
-                  type="text"
-                  value={localInfo.title}
-                  onChange={(e) => handleInfoChange('title', e.target.value)}
-                  placeholder="Название картины..."
-                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
-                />
-              </div>
-
+              {/* 1. Artist */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#565051]">Автор</label>
                 <input
@@ -390,6 +406,31 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 />
               </div>
 
+              {/* 2. Artwork Title */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-[#565051]">Название работы</label>
+                <input
+                  type="text"
+                  value={localInfo.title}
+                  onChange={(e) => handleInfoChange('title', e.target.value)}
+                  placeholder="Название картины..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              {/* 3. Year */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-[#565051]">Год создания</label>
+                <input
+                  type="text"
+                  value={localInfo.year || ''}
+                  onChange={(e) => handleInfoChange('year', e.target.value)}
+                  placeholder="2024..."
+                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
+                />
+              </div>
+
+              {/* 4. Medium */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#565051]">Техника</label>
                 <SemiDropdownInput
@@ -400,7 +441,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
+              {/* 5. Dimensions */}
+              <div className="flex flex-col gap-1 sm:col-span-2">
                 <label className="text-xs text-[#565051]">Размер</label>
                 <input
                   type="text"
@@ -410,17 +452,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     handleInfoChange('dimensions', formatted)
                   }}
                   placeholder="80 × 60 см..."
-                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="text-xs text-[#565051]">Год создания</label>
-                <input
-                  type="text"
-                  value={localInfo.year || ''}
-                  onChange={(e) => handleInfoChange('year', e.target.value)}
-                  placeholder="2024..."
                   className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
                 />
               </div>

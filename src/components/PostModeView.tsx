@@ -128,29 +128,14 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
         </div>
 
         {/* Captions Section — Editable without blinking cursor */}
-        <div className="flex flex-col items-center justify-center text-center pb-2 sm:pb-4 shrink-0 px-2 sm:px-4">
-          {/* Editable Artwork Title */}
-          <input
-            type="text"
-            value={info.title}
-            placeholder="Название работы"
-            onChange={(e) => handleFieldChange('title', e.target.value)}
-            className="post-mode-input text-xl sm:text-2xl font-bold text-[#0f0b0c] mb-1 text-center w-full bg-transparent border-0 outline-none"
-            style={{
-              fontFamily: "'EBGaramond', Georgia, serif",
-              caretColor: 'transparent',
-              outline: 'none',
-              lineHeight: 1.25,
-            }}
-          />
-
-          {/* Editable Artist Name */}
+        <div className="flex flex-col items-center justify-center text-center pb-3 sm:pb-5 shrink-0 px-2 sm:px-6">
+          {/* 1. Artist Name */}
           <input
             type="text"
             value={info.artist}
             placeholder="Имя автора"
             onChange={(e) => handleFieldChange('artist', e.target.value)}
-            className="post-mode-input text-sm sm:text-base text-[#565051] mb-2 sm:mb-3 text-center w-full bg-transparent border-0 outline-none"
+            className="post-mode-input text-sm sm:text-base font-normal text-[#565051] mb-1 text-center w-full bg-transparent border-0 outline-none"
             style={{
               fontFamily: "'EBGaramond', Georgia, serif",
               caretColor: 'transparent',
@@ -159,8 +144,40 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
             }}
           />
 
-          {/* Editable Details: Medium · Dimensions · Year */}
-          <div className="flex items-center justify-center flex-wrap gap-x-1.5 gap-y-1 text-xs sm:text-base text-[#565051] [font-variant-numeric:lining-nums_tabular-nums] max-w-full">
+          {/* 2. Artwork Title — Strictly NOT BOLD, elegant italic */}
+          <input
+            type="text"
+            value={info.title}
+            placeholder="Название работы"
+            onChange={(e) => handleFieldChange('title', e.target.value)}
+            className="post-mode-input text-xl sm:text-2xl font-normal italic text-[#0f0b0c] mb-2 sm:mb-2.5 text-center w-full bg-transparent border-0 outline-none"
+            style={{
+              fontFamily: "'EBGaramond', Georgia, serif",
+              caretColor: 'transparent',
+              outline: 'none',
+              lineHeight: 1.25,
+            }}
+          />
+
+          {/* 3. Details: Year · Medium · Dimensions */}
+          <div className="flex items-center justify-center flex-wrap gap-x-1.5 gap-y-1 text-xs sm:text-sm text-[#565051] [font-variant-numeric:lining-nums_tabular-nums] max-w-full">
+            {/* Year */}
+            <input
+              type="text"
+              value={info.year || ''}
+              placeholder="Год"
+              onChange={(e) => handleFieldChange('year', e.target.value)}
+              className="post-mode-input text-center bg-transparent border-0 outline-none"
+              style={{
+                fontFamily: "'EBGaramond', Georgia, serif",
+                caretColor: 'transparent',
+                outline: 'none',
+                width: info.year ? `${Math.max(4, info.year.length + 1)}ch` : '5ch',
+                maxWidth: '70px',
+              }}
+            />
+            <span className="text-[#565051]/60 select-none">·</span>
+            {/* Medium */}
             <input
               type="text"
               value={info.medium || ''}
@@ -176,11 +193,15 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
               }}
             />
             <span className="text-[#565051]/60 select-none">·</span>
+            {/* Dimensions */}
             <input
               type="text"
               value={info.dimensions || ''}
               placeholder="Размер (напр. 80 × 60 см)"
-              onChange={(e) => handleFieldChange('dimensions', e.target.value)}
+              onChange={(e) => {
+                const formatted = e.target.value.replace(/\s*[xXхХ]\s*/g, ' × ')
+                handleFieldChange('dimensions', formatted)
+              }}
               className="post-mode-input text-center bg-transparent border-0 outline-none"
               style={{
                 fontFamily: "'EBGaramond', Georgia, serif",
@@ -188,21 +209,6 @@ export const PostModeView: React.FC<PostModeViewProps> = ({
                 outline: 'none',
                 width: info.dimensions ? `${Math.max(6, info.dimensions.length + 1)}ch` : '18ch',
                 maxWidth: '220px',
-              }}
-            />
-            <span className="text-[#565051]/60 select-none">·</span>
-            <input
-              type="text"
-              value={info.year || ''}
-              placeholder="Год"
-              onChange={(e) => handleFieldChange('year', e.target.value)}
-              className="post-mode-input text-center bg-transparent border-0 outline-none"
-              style={{
-                fontFamily: "'EBGaramond', Georgia, serif",
-                caretColor: 'transparent',
-                outline: 'none',
-                width: info.year ? `${Math.max(4, info.year.length + 1)}ch` : '5ch',
-                maxWidth: '70px',
               }}
             />
           </div>

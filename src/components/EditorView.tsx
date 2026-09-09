@@ -249,19 +249,19 @@ export const EditorView: React.FC<EditorViewProps> = ({
     loadHistory()
   }, [])
 
-  // Initialize crop boundaries
+  // Initialize crop boundaries to fully cover the entire image to the exact edges
   const initCropBounds = useCallback((imgW: number, imgH: number) => {
     setScanPoints([
-      { x: Math.round(imgW * 0.08), y: Math.round(imgH * 0.08) },
-      { x: Math.round(imgW * 0.92), y: Math.round(imgH * 0.08) },
-      { x: Math.round(imgW * 0.92), y: Math.round(imgH * 0.92) },
-      { x: Math.round(imgW * 0.08), y: Math.round(imgH * 0.92) }
+      { x: 0, y: 0 },
+      { x: imgW, y: 0 },
+      { x: imgW, y: imgH },
+      { x: 0, y: imgH }
     ])
     setFixedCropArea({
-      x: Math.round(imgW * 0.08),
-      y: Math.round(imgH * 0.08),
-      width: Math.round(imgW * 0.84),
-      height: Math.round(imgH * 0.84)
+      x: 0,
+      y: 0,
+      width: imgW,
+      height: imgH
     })
   }, [])
 
@@ -696,13 +696,14 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0)
     
     // Construct metadata-rich file name separated by '_'
+    // Order requested: artist, title, year, medium, dimensions
     const parts: string[] = []
+    if (artworkInfo.artist?.trim()) parts.push(artworkInfo.artist.trim())
     const cleanTitle = artworkInfo.title?.trim() || fileName?.replace(/\.[^/.]+$/, '').trim() || `artwork_${Date.now()}`
     if (cleanTitle) parts.push(cleanTitle)
-    if (artworkInfo.artist?.trim()) parts.push(artworkInfo.artist.trim())
+    if (artworkInfo.year?.trim()) parts.push(artworkInfo.year.trim())
     if (artworkInfo.medium?.trim()) parts.push(artworkInfo.medium.trim())
     if (artworkInfo.dimensions?.trim()) parts.push(artworkInfo.dimensions.trim())
-    if (artworkInfo.year?.trim()) parts.push(artworkInfo.year.trim())
     const rawName = parts.join('_')
     const safeName = rawName.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim()
 
@@ -866,13 +867,36 @@ export const EditorView: React.FC<EditorViewProps> = ({
   }
 
 
+  const handleAspectRatioChange = (ratio: AspectRatio) => {
+    setSelectedAspectRatio(ratio)
+    if (!baseImage) return
+    const imgW = (baseImage as HTMLImageElement).naturalWidth || (baseImage as HTMLCanvasElement).width
+    const imgH = (baseImage as HTMLImageElement).naturalHeight || (baseImage as HTMLCanvasElement).height
+    if (ratio.ratio <= 0) {
+      setFixedCropArea({ x: 0, y: 0, width: imgW, height: imgH })
+      return
+    }
+    let newW = imgW
+    let newH = Math.round(imgW / ratio.ratio)
+    if (newH > imgH) {
+      newH = imgH
+      newW = Math.round(imgH * ratio.ratio)
+    }
+    const newX = Math.round((imgW - newW) / 2)
+    const newY = Math.round((imgH - newH) / 2)
+    setFixedCropArea({ x: newX, y: newY, width: newW, height: newH })
+  }
+
   const handleResetCropPoints = () => {
     // 1. Reset gradual angle manipulation to 0
     if (adjustments.straighten !== 0) {
       handleAdjustmentsChange({ ...adjustments, straighten: 0 })
     }
 
-    // 2. Restore original untransformed base image, resetting any 90° rotations and flips
+    // 2. Reset aspect ratio back to original free form
+    setSelectedAspectRatio(ASPECT_RATIOS[0])
+
+    // 3. Restore original untransformed base image, resetting any 90° rotations and flips
     const targetSource = untransformedSourceRef.current || baseImage
     if (targetSource) {
       setBaseImage(targetSource)
@@ -1945,7 +1969,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           cropMode={cropMode}
           onCropModeChange={setCropMode}
           selectedAspectRatio={selectedAspectRatio}
-          onAspectRatioChange={setSelectedAspectRatio}
+          onAspectRatioChange={handleAspectRatioChange}
           onAutoDetectCrop={handleAutoDetectCrop}
           onResetCropPoints={handleResetCropPoints}
           onRotateCW={handleRotateCW}
