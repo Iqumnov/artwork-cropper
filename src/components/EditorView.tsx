@@ -175,7 +175,6 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
-  const [touchDistance, setTouchDistance] = useState<number | null>(null)
 
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -185,11 +184,50 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const dragFixedCropRef = useRef<CropArea>({ x: 0, y: 0, width: 0, height: 0 })
   const addFilesRef = useRef<HTMLInputElement>(null)
 
+  const fitScaleRef = useRef(1)
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isHoldingOriginalRef = useRef(false)
+  const pointerStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const lastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 })
+  const pinchRef = useRef<{
+    initialDist: number
+    initialZoom: number
+    initialPan: { x: number; y: number }
+    initialMidX: number
+    initialMidY: number
+  } | null>(null)
+
+  const cancelHoldTimer = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    if (isHoldingOriginalRef.current) {
+      isHoldingOriginalRef.current = false
+      setShowBefore(false)
+    }
+  }, [])
+
+  const startHoldTimer = useCallback((clientX: number, clientY: number) => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    pointerStartPosRef.current = { x: clientX, y: clientY }
+    holdTimerRef.current = setTimeout(() => {
+      if (!draggingTarget && !pinchRef.current) {
+        isHoldingOriginalRef.current = true
+        setShowBefore(true)
+      }
+    }, 260)
+  }, [draggingTarget])
+
   const startDragging = (
     target: typeof draggingTarget,
     clientX: number,
     clientY: number
   ) => {
+    cancelHoldTimer()
     setDraggingTarget(target)
     if (target?.type === 'scan-point') {
       setSelectedPointIndex(target.index)
@@ -238,12 +276,13 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const initialX = Math.round((availW - imgW * fitScale) / 2)
     const initialY = Math.round((availH - imgH * fitScale) / 2)
 
+    fitScaleRef.current = fitScale
     setZoom(fitScale)
     setPan({ x: initialX, y: initialY })
   }, [])
 
   // Clamp Pan so the image cannot be fully moved off-screen
-  const clampPan = (targetX: number, targetY: number, currentZoom: number) => {
+  const clampPan = useCallback((targetX: number, targetY: number, currentZoom: number) => {
     if (!viewportRef.current || !baseImage) return { x: targetX, y: targetY }
     const rect = viewportRef.current.getBoundingClientRect()
     const w = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
@@ -262,7 +301,46 @@ export const EditorView: React.FC<EditorViewProps> = ({
       x: Math.max(minX, Math.min(maxX, targetX)),
       y: Math.max(minY, Math.min(maxY, targetY))
     }
-  }
+  }, [baseImage])
+
+  // Double-tap on canvas: toggles between 100% (fit) and 2.5x zoom centered at tap
+  const handleDoubleTap = useCallback((clientX: number, clientY: number) => {
+    if (!viewportRef.current || !baseImage) return
+    const imgW = (baseImage as HTMLImageElement).naturalWidth || baseImage.width
+    const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
+
+    const isAt100 = Math.abs(zoom - fitScaleRef.current) < 0.08 || Math.abs(zoom - 1.0) < 0.08
+
+    if (isAt100) {
+      const nextZoom = Math.min(6, Math.max(2.2, fitScaleRef.current * 2.5))
+      const rect = viewportRef.current.getBoundingClientRect()
+      const originX = clientX - rect.left
+      const originY = clientY - rect.top
+
+      const scaleRatio = nextZoom / zoom
+      const nextPanX = originX - (originX - pan.x) * scaleRatio
+      const nextPanY = originY - (originY - pan.y) * scaleRatio
+
+      setZoom(nextZoom)
+      setPan(clampPan(nextPanX, nextPanY, nextZoom))
+    } else {
+      resetViewport(imgW, imgH)
+    }
+  }, [zoom, pan, baseImage, resetViewport, clampPan])
+
+  // Fast double-tap detection helper
+  const onCanvasTapStart = useCallback((clientX: number, clientY: number) => {
+    const now = Date.now()
+    const dist = Math.hypot(clientX - lastTapRef.current.x, clientY - lastTapRef.current.y)
+    if (now - lastTapRef.current.time < 320 && dist < 30) {
+      cancelHoldTimer()
+      lastTapRef.current = { time: 0, x: 0, y: 0 }
+      handleDoubleTap(clientX, clientY)
+      return true
+    }
+    lastTapRef.current = { time: now, x: clientX, y: clientY }
+    return false
+  }, [cancelHoldTimer, handleDoubleTap])
 
   // Load initial image into baseImage
   useEffect(() => {
@@ -871,7 +949,11 @@ export const EditorView: React.FC<EditorViewProps> = ({
 
   // --- POINTER / TOUCH DISPATCHER ---
   const handlePointerDown = (clientX: number, clientY: number) => {
-    if (draggingTarget) return
+    if (draggingTarget) {
+      cancelHoldTimer()
+      return
+    }
+    startHoldTimer(clientX, clientY)
     setIsPanning(true)
     setPanStart({ x: clientX - pan.x, y: clientY - pan.y })
     lastClientPosRef.current = { x: clientX, y: clientY }
@@ -883,6 +965,16 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const imgH = (baseImage as HTMLImageElement).naturalHeight || baseImage.height
 
     if (isPanning) {
+      const distFromStart = Math.hypot(
+        clientX - pointerStartPosRef.current.x,
+        clientY - pointerStartPosRef.current.y
+      )
+      if (distFromStart > 6) {
+        if (holdTimerRef.current && !isHoldingOriginalRef.current) {
+          clearTimeout(holdTimerRef.current)
+          holdTimerRef.current = null
+        }
+      }
       const rawX = clientX - panStart.x
       const rawY = clientY - panStart.y
       setPan(clampPan(rawX, rawY, zoom))
@@ -1078,6 +1170,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   }
 
   const handlePointerUp = () => {
+    cancelHoldTimer()
     setIsPanning(false)
     setDraggingTarget(null)
     setLoupe(null)
@@ -1179,6 +1272,16 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const handleVpWheel = (e: WheelEvent) => {
       e.preventDefault()
       e.stopPropagation()
+
+      // Phone touch protection: disable wheel zoom on mobile/touch screens
+      const isTouchDevice =
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.matchMedia('(pointer: coarse)').matches
+
+      if (isTouchDevice && !e.ctrlKey) {
+        return
+      }
 
       let factor = 1
       if (e.ctrlKey) {
@@ -1421,41 +1524,84 @@ export const EditorView: React.FC<EditorViewProps> = ({
       <div
         ref={viewportRef}
         className="relative flex-1 overflow-hidden cursor-grab active:cursor-grabbing touch-none flex items-center justify-center bg-[#f2efef]"
-        onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
-        onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
+        onDoubleClick={(e) => handleDoubleTap(e.clientX, e.clientY)}
+        onMouseDown={(e) => {
+          if (e.button === 0) {
+            const isDouble = onCanvasTapStart(e.clientX, e.clientY)
+            if (!isDouble) {
+              handlePointerDown(e.clientX, e.clientY)
+            }
+          }
+        }}
+        onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY, e)}
         onMouseUp={handlePointerUp}
         onTouchStart={(e) => {
           if (e.touches.length === 1) {
-            handlePointerDown(e.touches[0].clientX, e.touches[0].clientY)
+            pinchRef.current = null
+            const isDouble = onCanvasTapStart(e.touches[0].clientX, e.touches[0].clientY)
+            if (!isDouble) {
+              handlePointerDown(e.touches[0].clientX, e.touches[0].clientY)
+            }
           } else if (e.touches.length === 2) {
-            const dist = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-            )
-            setTouchDistance(dist)
+            cancelHoldTimer()
+            setIsPanning(false)
+            const touch0 = e.touches[0]
+            const touch1 = e.touches[1]
+            const dist = Math.hypot(touch0.clientX - touch1.clientX, touch0.clientY - touch1.clientY)
+            const midX = (touch0.clientX + touch1.clientX) / 2
+            const midY = (touch0.clientY + touch1.clientY) / 2
+            pinchRef.current = {
+              initialDist: dist,
+              initialZoom: zoom,
+              initialPan: { ...pan },
+              initialMidX: midX,
+              initialMidY: midY
+            }
           }
         }}
         onTouchMove={(e) => {
-          if (e.touches.length === 1) {
+          if (e.touches.length === 1 && !pinchRef.current) {
             handlePointerMove(e.touches[0].clientX, e.touches[0].clientY)
-          } else if (e.touches.length === 2 && touchDistance !== null) {
+          } else if (e.touches.length === 2 && pinchRef.current) {
             e.preventDefault()
-            const dist = Math.hypot(
-              e.touches[0].clientX - e.touches[1].clientX,
-              e.touches[0].clientY - e.touches[1].clientY
-            )
-            const factor = dist / touchDistance
-            setZoom(prevZoom => {
-              const nextZoom = Math.max(0.2, Math.min(6, prevZoom * factor))
-              setPan(prevPan => clampPan(prevPan.x, prevPan.y, nextZoom))
-              return nextZoom
-            })
-            setTouchDistance(dist)
+            const touch0 = e.touches[0]
+            const touch1 = e.touches[1]
+            const dist = Math.hypot(touch0.clientX - touch1.clientX, touch0.clientY - touch1.clientY)
+            const midX = (touch0.clientX + touch1.clientX) / 2
+            const midY = (touch0.clientY + touch1.clientY) / 2
+
+            const { initialDist, initialZoom, initialPan, initialMidX, initialMidY } = pinchRef.current
+            if (initialDist <= 0 || !viewportRef.current) return
+
+            const scaleRatio = dist / initialDist
+            const nextZoom = Math.max(0.15, Math.min(8, initialZoom * scaleRatio))
+
+            const vpRect = viewportRef.current.getBoundingClientRect()
+            const focalX = initialMidX - vpRect.left
+            const focalY = initialMidY - vpRect.top
+
+            const dMidX = midX - initialMidX
+            const dMidY = midY - initialMidY
+
+            const actualRatio = nextZoom / initialZoom
+            const nextPanX = focalX - (focalX - initialPan.x) * actualRatio + dMidX
+            const nextPanY = focalY - (focalY - initialPan.y) * actualRatio + dMidY
+
+            setZoom(nextZoom)
+            setPan(clampPan(nextPanX, nextPanY, nextZoom))
           }
         }}
-        onTouchEnd={() => {
+        onTouchEnd={(e) => {
+          if (e.touches.length < 2) {
+            pinchRef.current = null
+          }
+          if (e.touches.length === 0) {
+            handlePointerUp()
+          }
+        }}
+        onTouchCancel={() => {
+          pinchRef.current = null
           handlePointerUp()
-          setTouchDistance(null)
         }}
       >
         {/* Before watermark */}
@@ -1499,10 +1645,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     />
                   </svg>
 
-                  {/* 4 Corner Pins (100% exact sub-pixel center aligned with polygon vertices) */}
+                  {/* 4 Corner Pins (100% exact sub-pixel center aligned with polygon vertices, 64px hitbox) */}
                   {scanPoints.map((point, index) => {
                     const pinSize = Math.max(12, Math.round(14 / zoom))
-                    const hitSize = Math.max(44, Math.round(48 / zoom))
+                    const hitSize = Math.max(64, Math.round(64 / zoom))
                     return (
                       <div
                         key={`corner-${index}`}
@@ -1510,8 +1656,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         style={{
                           left: `${point.x}px`,
                           top: `${point.y}px`,
-                          width: `${pinSize}px`,
-                          height: `${pinSize}px`,
+                          width: `${hitSize}px`,
+                          height: `${hitSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
                         onMouseDown={(e) => {
@@ -1525,33 +1671,25 @@ export const EditorView: React.FC<EditorViewProps> = ({
                           }
                         }}
                       >
-                        {/* Centered touch/click hitbox guaranteed >= 44 screen px */}
+                        {/* Clean 1px Square Pin centered in 64px touch target */}
                         <div
-                          className="absolute pointer-events-auto"
-                          style={{
-                            width: `${hitSize}px`,
-                            height: `${hitSize}px`,
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)'
-                          }}
-                        />
-                        {/* Clean 1px Square Pin */}
-                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none">
+                          className="border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none"
+                          style={{ width: `${pinSize}px`, height: `${pinSize}px` }}
+                        >
                           <div className="w-1.5 h-1.5 bg-[#0f0b0c]" />
                         </div>
                       </div>
                     )
                   })}
 
-                  {/* 4 Midpoint Handles (100% exact center aligned on polygon line segments) */}
+                  {/* 4 Midpoint Handles (100% exact center aligned on polygon line segments, 60px hitbox) */}
                   {scanPoints.map((point, index) => {
                     const nextIdx = (index + 1) % 4
                     const nextPt = scanPoints[nextIdx]
                     const midX = (point.x + nextPt.x) / 2
                     const midY = (point.y + nextPt.y) / 2
                     const midSize = Math.max(8, Math.round(10 / zoom))
-                    const hitSize = Math.max(44, Math.round(48 / zoom))
+                    const hitSize = Math.max(60, Math.round(60 / zoom))
                     return (
                       <div
                         key={`mid-${index}`}
@@ -1559,8 +1697,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         style={{
                           left: `${midX}px`,
                           top: `${midY}px`,
-                          width: `${midSize}px`,
-                          height: `${midSize}px`,
+                          width: `${hitSize}px`,
+                          height: `${hitSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
                         onMouseDown={(e) => {
@@ -1575,16 +1713,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                       >
                         <div
-                          className="absolute pointer-events-auto"
-                          style={{
-                            width: `${hitSize}px`,
-                            height: `${hitSize}px`,
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)'
-                          }}
+                          className="border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none"
+                          style={{ width: `${midSize}px`, height: `${midSize}px` }}
                         />
-                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none" />
                       </div>
                     )
                   })}
@@ -1611,12 +1742,12 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     }
                   }}
                 >
-                  {/* 4 Corner Pins for Fixed Aspect (Exact same visual styling as perspective) */}
+                  {/* 4 Corner Pins for Fixed Aspect (64px hitbox) */}
                   {(['tl', 'tr', 'br', 'bl'] as const).map(corner => {
                     const isLeft = corner === 'tl' || corner === 'bl'
                     const isTop = corner === 'tl' || corner === 'tr'
                     const pinSize = Math.max(12, Math.round(14 / zoom))
-                    const hitSize = Math.max(44, Math.round(48 / zoom))
+                    const hitSize = Math.max(64, Math.round(64 / zoom))
                     return (
                       <div
                         key={`fixed-corner-${corner}`}
@@ -1624,8 +1755,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         style={{
                           left: isLeft ? 0 : '100%',
                           top: isTop ? 0 : '100%',
-                          width: `${pinSize}px`,
-                          height: `${pinSize}px`,
+                          width: `${hitSize}px`,
+                          height: `${hitSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
                         onMouseDown={(e) => {
@@ -1639,29 +1770,20 @@ export const EditorView: React.FC<EditorViewProps> = ({
                           }
                         }}
                       >
-                        {/* Guaranteed >= 44 screen px touch hitbox */}
                         <div
-                          className="absolute pointer-events-auto"
-                          style={{
-                            width: `${hitSize}px`,
-                            height: `${hitSize}px`,
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)'
-                          }}
-                        />
-                        {/* Clean 1px Square Pin with Inner Dot — Identical to Perspective */}
-                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none">
+                          className="border border-[#0f0b0c] bg-[#faf8f8] shadow-sm flex items-center justify-center pointer-events-none"
+                          style={{ width: `${pinSize}px`, height: `${pinSize}px` }}
+                        >
                           <div className="w-1.5 h-1.5 bg-[#0f0b0c]" />
                         </div>
                       </div>
                     )
                   })}
 
-                  {/* 4 Edge Midpoint Handles for Fixed Aspect (Edge manipulation) */}
+                  {/* 4 Edge Midpoint Handles for Fixed Aspect (60px hitbox) */}
                   {(['top', 'right', 'bottom', 'left'] as const).map(side => {
                     const midSize = Math.max(8, Math.round(10 / zoom))
-                    const hitSize = Math.max(44, Math.round(48 / zoom))
+                    const hitSize = Math.max(60, Math.round(60 / zoom))
                     let leftPos = '50%'
                     let topPos = '50%'
                     if (side === 'top') { leftPos = '50%'; topPos = '0%' }
@@ -1676,8 +1798,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         style={{
                           left: leftPos,
                           top: topPos,
-                          width: `${midSize}px`,
-                          height: `${midSize}px`,
+                          width: `${hitSize}px`,
+                          height: `${hitSize}px`,
                           transform: 'translate(-50%, -50%)'
                         }}
                         onMouseDown={(e) => {
@@ -1692,16 +1814,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
                         }}
                       >
                         <div
-                          className="absolute pointer-events-auto"
-                          style={{
-                            width: `${hitSize}px`,
-                            height: `${hitSize}px`,
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)'
-                          }}
+                          className="border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none"
+                          style={{ width: `${midSize}px`, height: `${midSize}px` }}
                         />
-                        <div className="w-full h-full border border-[#0f0b0c] bg-[#faf8f8] shadow-sm pointer-events-none" />
                       </div>
                     )
                   })}

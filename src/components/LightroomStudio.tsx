@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   Crop,
   Sun,
@@ -108,39 +108,45 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
   const resizeStartYRef = useRef(0)
   const resizeStartHeightRef = useRef(0)
 
-  // Drawer Drag Resize Handlers
-  const handleResizeStart = (clientY: number) => {
+  // Drawer Drag Resize Handlers using robust Pointer Capture
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
     isResizingRef.current = true
-    resizeStartYRef.current = clientY
+    resizeStartYRef.current = e.clientY
     resizeStartHeightRef.current = drawerHeight
-
-    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-      if (!isResizingRef.current) return
-      const currentY = 'touches' in e ? e.touches[0].clientY : e.clientY
-      const deltaY = resizeStartYRef.current - currentY
-      const minH = 170
-      const maxH = Math.min(window.innerHeight - 70, 520)
-      const newH = Math.max(minH, Math.min(maxH, resizeStartHeightRef.current + deltaY))
-      onDrawerHeightChange(newH)
-    }
-
-    const handlePointerUp = () => {
-      isResizingRef.current = false
-      window.removeEventListener('mousemove', handlePointerMove)
-      window.removeEventListener('mouseup', handlePointerUp)
-      window.removeEventListener('touchmove', handlePointerMove)
-      window.removeEventListener('touchend', handlePointerUp)
-    }
-
-    window.addEventListener('mousemove', handlePointerMove)
-    window.addEventListener('mouseup', handlePointerUp)
-    window.addEventListener('touchmove', handlePointerMove)
-    window.addEventListener('touchend', handlePointerUp)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
 
-  const updateAdj = <K extends keyof LightroomAdjustments>(key: K, value: LightroomAdjustments[K]) => {
-    onChange({ ...adjustments, [key]: value })
+  const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isResizingRef.current) return
+    e.preventDefault()
+    e.stopPropagation()
+    const deltaY = resizeStartYRef.current - e.clientY
+    const minH = 160
+    const maxH = Math.min(window.innerHeight - 70, 520)
+    const newH = Math.max(minH, Math.min(maxH, resizeStartHeightRef.current + deltaY))
+    onDrawerHeightChange(newH)
   }
+
+  const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isResizingRef.current) return
+    isResizingRef.current = false
+    try {
+      if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+        ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  const adjustmentsRef = useRef(adjustments)
+  adjustmentsRef.current = adjustments
+
+  const updateAdj = useCallback(<K extends keyof LightroomAdjustments>(key: K, value: LightroomAdjustments[K]) => {
+    onChange({ ...adjustmentsRef.current, [key]: value })
+  }, [onChange])
 
   const updateHsl = (channel: ColorChannel, field: 'hue' | 'sat' | 'lum', val: number) => {
     const current = adjustments.hsl[channel] || { hue: 0, sat: 0, lum: 0 }
@@ -251,19 +257,18 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
         e.stopPropagation()
       }}
     >
-      {/* Resizable Drag Handle Bar — compact container with expanded 30px touch hitbox */}
+      {/* Resizable Drag Handle Bar with 40px touch hitbox and pointer capture */}
       <div
-        onMouseDown={(e) => handleResizeStart(e.clientY)}
-        onTouchStart={(e) => {
-          e.stopPropagation()
-          if (e.touches.length === 1) handleResizeStart(e.touches[0].clientY)
-        }}
-        className="w-full cursor-row-resize flex items-center justify-center relative hover:bg-[#e3dbdc]/40 transition-colors shrink-0 h-2.5 select-none"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+        onPointerCancel={handleResizePointerUp}
+        className="w-full cursor-row-resize flex items-center justify-center relative hover:bg-[#e3dbdc]/40 transition-colors shrink-0 h-3.5 select-none touch-none"
+        style={{ touchAction: 'none' }}
         title="Потяните для изменения высоты меню"
       >
-        {/* Generous invisible touch hitbox extending above and below */}
-        <div className="absolute -top-3 -bottom-3 inset-x-0 cursor-row-resize" />
-        <div className="w-8 h-0.5 bg-[#e3dbdc] rounded-none pointer-events-none" />
+        <div className="absolute -top-3.5 -bottom-3.5 inset-x-0 cursor-row-resize touch-none" style={{ touchAction: 'none' }} />
+        <div className="w-10 h-1 bg-[#565051]/30 hover:bg-[#0f0b0c] transition-colors rounded-none pointer-events-none" />
       </div>
 
       {/* Category Tabs (Cropping is Tab 1) */}
@@ -485,26 +490,24 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
                 <RotateCw className="w-3.5 h-3.5 text-[#565051]" />
                 <span className="text-xs font-normal">Угол наклона</span>
               </div>
-              <input
-                type="range"
-                min="-45"
-                max="45"
-                step="0.1"
-                value={adjustments.straighten}
-                onPointerDown={onSliderDragStart}
-                onPointerUp={onSliderDragEnd}
-                onTouchStart={onSliderDragStart}
-                onTouchEnd={onSliderDragEnd}
-                onChange={(e) => updateAdj('straighten', parseFloat(e.target.value))}
-                className="flex-1 lr-slider"
-              />
+              <div className="flex-1">
+                <TouchSlider
+                  min={-45}
+                  max={45}
+                  step={0.1}
+                  value={adjustments.straighten}
+                  onStart={onSliderDragStart}
+                  onEnd={onSliderDragEnd}
+                  onChange={(v) => updateAdj('straighten', v)}
+                />
+              </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-xs font-mono w-12 text-right text-[#0f0b0c]">
                   {adjustments.straighten > 0 ? `+${adjustments.straighten.toFixed(1)}°` : `${adjustments.straighten.toFixed(1)}°`}
                 </span>
                 {adjustments.straighten !== 0 && (
                   <button
-                    onClick={() => onChange({ ...adjustments, straighten: 0 })}
+                    onClick={() => updateAdj('straighten', 0)}
                     className="text-xs px-2 py-0.5 border border-[#e3dbdc] hover:border-[#34292a] text-[#565051] hover:text-[#0f0b0c] transition-colors cursor-pointer"
                     title="Сбросить угол в 0°"
                   >
@@ -954,6 +957,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
 
 
 // PresetGroups — memoized category grouping to avoid filtering 170+ presets on every render
+// PresetGroups — memoized category grouping to avoid filtering 170+ presets on every render
 const BUILTIN_CATEGORIES = ['Плёнка', 'Слайд', 'Монохром', 'Кино', 'Архив', 'Арт'] as const
 
 const PresetGroups: React.FC<{
@@ -962,6 +966,13 @@ const PresetGroups: React.FC<{
   onApply: (preset: Preset) => void
   onDelete: (id: string, e: React.MouseEvent) => void
 }> = ({ selectedPresetCategory, customPresets, onApply, onDelete }) => {
+  // Track the furthest visible preset index in the catalog (defaults to initial 4 visible cards)
+  const [maxVisibleIndex, setMaxVisibleIndex] = useState(3)
+
+  const handleCardIntersect = useCallback((cardIndex: number) => {
+    setMaxVisibleIndex((prev) => Math.max(prev, cardIndex))
+  }, [])
+
   const groupedPresets = useMemo(() => {
     return BUILTIN_CATEGORIES.map((cat) => ({
       category: cat,
@@ -971,6 +982,8 @@ const PresetGroups: React.FC<{
 
   const showCustom = selectedPresetCategory === 'Все' || selectedPresetCategory === 'Пользовательские'
   const showAll = selectedPresetCategory === 'Все'
+
+  let globalIndex = 0
 
   return (
     <div className="flex flex-col gap-4 pt-1">
@@ -983,9 +996,20 @@ const PresetGroups: React.FC<{
           </div>
           {customPresets.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-              {customPresets.map((preset) => (
-                <PresetNatureCard key={preset.id} preset={preset} onApply={onApply} onDelete={onDelete} />
-              ))}
+              {customPresets.map((preset) => {
+                const idx = globalIndex++
+                return (
+                  <PresetNatureCard
+                    key={preset.id}
+                    preset={preset}
+                    index={idx}
+                    shouldLoad={idx <= maxVisibleIndex + 4}
+                    onIntersect={() => handleCardIntersect(idx)}
+                    onApply={onApply}
+                    onDelete={onDelete}
+                  />
+                )
+              })}
             </div>
           ) : (
             selectedPresetCategory === 'Пользовательские' && (
@@ -1007,9 +1031,19 @@ const PresetGroups: React.FC<{
               <span>{presets.length}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-              {presets.map((preset) => (
-                <PresetNatureCard key={preset.id} preset={preset} onApply={onApply} />
-              ))}
+              {presets.map((preset) => {
+                const idx = globalIndex++
+                return (
+                  <PresetNatureCard
+                    key={preset.id}
+                    preset={preset}
+                    index={idx}
+                    shouldLoad={idx <= maxVisibleIndex + 4}
+                    onIntersect={() => handleCardIntersect(idx)}
+                    onApply={onApply}
+                  />
+                )
+              })}
             </div>
           </div>
         ))}
@@ -1017,17 +1051,19 @@ const PresetGroups: React.FC<{
   )
 }
 
-// Preset Card — lazy thumbnail via IntersectionObserver (only generates when scrolled into view)
+// Preset Card — preloaded BEFORE entering screen, strictly up to 4 cards beyond visible screen
 const PresetNatureCard: React.FC<{
   preset: Preset
+  index: number
+  shouldLoad: boolean
+  onIntersect: () => void
   onApply: (preset: Preset) => void
   onDelete?: (id: string, e: React.MouseEvent) => void
-}> = ({ preset, onApply, onDelete }) => {
+}> = ({ preset, shouldLoad, onIntersect, onApply, onDelete }) => {
   const [thumbSrc, setThumbSrc] = useState<string>('')
-  const [isVisible, setIsVisible] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
 
-  // IntersectionObserver: only trigger thumbnail generation when card enters the viewport
+  // Detect when card physically enters viewport to advance maxVisibleIndex
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
@@ -1035,25 +1071,24 @@ const PresetNatureCard: React.FC<{
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setIsVisible(true)
-          observer.disconnect()
+          onIntersect()
         }
       },
-      { rootMargin: '120px' } // pre-load 120px before entering view
+      { rootMargin: '0px' }
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [onIntersect])
 
-  // Only generate thumbnail once the card is visible
+  // Load thumbnail ONLY when within the strictly capped 4-card lookahead window
   useEffect(() => {
-    if (!isVisible) return
+    if (!shouldLoad) return
     let isMounted = true
     getPresetNatureThumbnail(preset).then((url) => {
       if (isMounted && url) setThumbSrc(url)
     })
     return () => { isMounted = false }
-  }, [isVisible, preset.id]) // preset.id only — presets are immutable
+  }, [shouldLoad, preset.id])
 
   return (
     <div
@@ -1070,8 +1105,8 @@ const PresetNatureCard: React.FC<{
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-[10px] text-[#565051] bg-[#f5f2f2] animate-pulse">
-            {isVisible ? 'Загрузка...' : ''}
+          <div className="w-full h-full flex items-center justify-center text-xs text-[#565051] bg-[#f5f2f2] animate-pulse">
+            {shouldLoad ? 'Загрузка...' : ''}
           </div>
         )}
 
@@ -1099,9 +1134,136 @@ const PresetNatureCard: React.FC<{
   )
 }
 
+// TouchSlider: Direction-aware gesture separator (vertical swipes scroll list, horizontal swipes adjust slider)
+export const TouchSlider: React.FC<{
+  min: number
+  max: number
+  step?: number
+  value: number
+  onChange: (val: number) => void
+  onStart?: () => void
+  onEnd?: () => void
+}> = ({ min, max, step = 1, value, onChange, onStart, onEnd }) => {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const isHorizontalLockRef = useRef<boolean | null>(null)
 
+  const calcValueFromX = (clientX: number) => {
+    if (!trackRef.current) return value
+    const rect = trackRef.current.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    const raw = min + pct * (max - min)
+    const stepped = Math.round(raw / step) * step
+    return Math.max(min, Math.min(max, parseFloat(stepped.toFixed(2))))
+  }
 
-// Reusable Lightroom Slider Row (Strictly 1px)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    }
+    isHorizontalLockRef.current = null
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || e.touches.length !== 1) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - touchStartRef.current.x
+    const dy = touch.clientY - touchStartRef.current.y
+
+    if (isHorizontalLockRef.current === null) {
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 5) {
+        // Vertical gesture: allow native scroll, lock out slider
+        isHorizontalLockRef.current = false
+        return
+      }
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 5) {
+        // Horizontal gesture: lock slider drag
+        isHorizontalLockRef.current = true
+        onStart?.()
+      }
+    }
+
+    if (isHorizontalLockRef.current) {
+      const newVal = calcValueFromX(touch.clientX)
+      onChange(newVal)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (isHorizontalLockRef.current) {
+      onEnd?.()
+    } else if (isHorizontalLockRef.current === null && touchStartRef.current) {
+      // Clean tap
+      const newVal = calcValueFromX(touchStartRef.current.x)
+      onChange(newVal)
+    }
+    touchStartRef.current = null
+    isHorizontalLockRef.current = null
+  }
+
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
+
+  return (
+    <div
+      ref={trackRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      className="relative flex items-center w-full h-7 cursor-pointer select-none"
+      style={{ touchAction: 'pan-y' }}
+    >
+      {/* 1px clean hairline track */}
+      <div className="w-full h-px bg-[#e3dbdc] relative pointer-events-none">
+        {min < 0 ? (
+          <div
+            className="absolute top-0 h-px bg-[#34292a]"
+            style={{
+              left: `${Math.min(50, pct)}%`,
+              width: `${Math.abs(pct - 50)}%`
+            }}
+          />
+        ) : (
+          <div
+            className="absolute top-0 left-0 h-px bg-[#34292a]"
+            style={{ width: `${pct}%` }}
+          />
+        )}
+      </div>
+
+      {/* Center zero mark */}
+      {min < 0 && max > 0 && (
+        <div className="absolute left-1/2 -translate-x-1/2 w-px h-2 bg-[#565051]/40 pointer-events-none" />
+      )}
+
+      {/* Thumb: clean 12x12 crisp square */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none"
+        style={{ left: `${pct}%`, width: '28px', height: '28px' }}
+      >
+        <div className="w-3 h-3 bg-[#0f0b0c]" />
+      </div>
+
+      {/* Desktop / Mouse fallback */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onPointerDown={onStart}
+        onPointerUp={onEnd}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer hidden md:block"
+        style={{ touchAction: 'pan-y' }}
+      />
+    </div>
+  )
+}
+
+// Reusable Lightroom Slider Row
 interface SliderRowProps {
   label: string
   value: number
@@ -1115,7 +1277,7 @@ interface SliderRowProps {
   onReset: () => void
 }
 
-const SliderRow: React.FC<SliderRowProps> = React.memo(({
+export const SliderRow = React.memo<SliderRowProps>(({
   label,
   value,
   min,
@@ -1155,26 +1317,15 @@ const SliderRow: React.FC<SliderRowProps> = React.memo(({
         </button>
       </div>
 
-      {/* touch-action: none prevents iOS scroll hijacking while dragging slider */}
-      <div className="relative flex items-center" style={{ touchAction: 'none' }}>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onPointerDown={onStart}
-          onPointerUp={onEnd}
-          onTouchStart={onStart}
-          onTouchEnd={onEnd}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="w-full lr-slider"
-          style={{ touchAction: 'none' }}
-        />
-        {min < 0 && max > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 w-px h-2 bg-[#565051]/40 pointer-events-none" />
-        )}
-      </div>
+      <TouchSlider
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={onChange}
+        onStart={onStart}
+        onEnd={onEnd}
+      />
     </div>
   )
 })

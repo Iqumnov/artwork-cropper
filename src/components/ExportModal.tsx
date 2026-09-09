@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { ArtworkInfo } from '../types'
 
 interface ExportModalProps {
@@ -114,7 +114,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onPrevImage,
 }) => {
   const [format, setFormat] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg')
-  const [quality, setQuality] = useState(0.92)
+  const [quality, setQuality] = useState(1.0)
   const [copied, setCopied] = useState(false)
   const [estimatedSize, setEstimatedSize] = useState<string>('')
   const [isExportAsPost, setIsExportAsPost] = useState(false)
@@ -208,11 +208,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleDownload = () => {
     if (!activeCanvas) return
     const safeName = (fileName.trim() || getDefaultName()).replace(/[/\\?%*:|"<>]/g, '-')
-    const suffix = isExportAsPost ? '_post' : ''
     const dataUrl = activeCanvas.toDataURL(format, quality)
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `${safeName}${suffix}.${ext}`
+    a.download = `${safeName}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -346,12 +345,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-[#565051]">Техника</label>
-                <input
-                  type="text"
+                <SemiDropdownInput
                   value={localInfo.medium || ''}
-                  onChange={(e) => handleInfoChange('medium', e.target.value)}
+                  onChange={(val) => handleInfoChange('medium', val)}
+                  options={MEDIUM_SUGGESTIONS}
                   placeholder="Холст, масло..."
-                  className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
                 />
               </div>
 
@@ -360,7 +358,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <input
                   type="text"
                   value={localInfo.dimensions || ''}
-                  onChange={(e) => handleInfoChange('dimensions', e.target.value)}
+                  onChange={(e) => {
+                    const formatted = e.target.value.replace(/\s*[xXхХ]\s*/g, ' × ')
+                    handleInfoChange('dimensions', formatted)
+                  }}
                   placeholder="80 × 60 см..."
                   className="px-2 py-1 text-xs border border-[#e3dbdc] focus:border-[#34292a] outline-none text-[#0f0b0c] bg-[#faf8f8]"
                 />
@@ -406,7 +407,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               className="flex-1 px-2.5 py-1.5 text-xs text-[#0f0b0c] bg-transparent outline-none border-none"
             />
             <span className="px-2 text-xs font-mono text-[#565051] select-none bg-[#faf8f8] border-l border-[#e3dbdc] py-1.5">
-              {isExportAsPost ? '_post' : ''}.{ext}
+              .{ext}
             </span>
           </div>
         </div>
@@ -494,6 +495,108 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const MEDIUM_SUGGESTIONS = [
+  'Холст, масло',
+  'Холст, акрил',
+  'Холст, темпера',
+  'Холст, смешанная техника',
+  'Бумага, акварель',
+  'Бумага, пастель',
+  'Бумага, тушь',
+  'Бумага, карандаш',
+  'Бумага, гуашь',
+  'Дерево, масло',
+  'Картон, масло',
+  'Смешанная техника',
+  'Шелкография',
+  'Литография',
+  'Офорт',
+  'Гравюра',
+  'Фотопечать',
+  'Цифровая печать',
+  'Скульптура, бронза',
+  'Керамика'
+]
+
+const SemiDropdownInput: React.FC<{
+  value: string
+  onChange: (val: string) => void
+  options: string[]
+  placeholder?: string
+}> = ({ value, onChange, options, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filtered = options.filter(opt =>
+    !value || opt.toLowerCase().includes(value.toLowerCase())
+  )
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="flex items-center border border-[#e3dbdc] focus-within:border-[#34292a] bg-[#faf8f8] transition-colors">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className="flex-1 px-2 py-1 text-xs outline-none text-[#0f0b0c] bg-transparent border-none"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setIsOpen(!isOpen)}
+          className="px-1.5 py-1 text-[#565051] hover:text-[#0f0b0c] cursor-pointer"
+        >
+          <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto bg-white border border-[#e3dbdc] shadow-md no-scrollbar">
+          {filtered.length > 0 ? (
+            filtered.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  onChange(opt)
+                  setIsOpen(false)
+                }}
+                className={`w-full text-left px-2.5 py-1.5 text-xs transition-colors cursor-pointer flex items-center justify-between ${
+                  value === opt
+                    ? 'bg-[#0f0b0c] text-[#faf8f8]'
+                    : 'text-[#0f0b0c] hover:bg-[#faf8f8] hover:text-[#34292a]'
+                }`}
+              >
+                <span>{opt}</span>
+                {value === opt && <Check className="w-3 h-3" />}
+              </button>
+            ))
+          ) : (
+            <div className="px-2.5 py-1.5 text-xs text-[#565051]">
+              Свой вариант
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

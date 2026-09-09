@@ -20,10 +20,12 @@ export default {
         'border-hover': '#34292a',
       },
       fontFamily: {
-        sans: ['EBGaramond', 'EB Garamond', 'Merriweather', 'PT Serif', 'Georgia', 'serif'],
+        sans: ['"EB Garamond"', 'EBGaramond', 'Merriweather', 'PT Serif', 'Georgia', 'serif'],
+        serif: ['"EB Garamond"', 'EBGaramond', 'Georgia', 'serif'],
+        body: ['"EB Garamond"', 'EBGaramond', 'Georgia', 'serif'],
         heading: ['Gloriascript', 'Pinyon Script', 'Playfair Display', 'serif'],
         accent: ['Gloriascript', 'cursive'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        mono: ['"EB Garamond"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
       },
       borderRadius: {
         none: '0px',
