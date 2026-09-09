@@ -273,7 +273,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const availW = rect.width
     const availH = rect.height
 
-    const fitScale = Math.min((availW * 0.86) / imgW, (availH * 0.86) / imgH, 1.8)
+    const marginFactor = rect.width < 640 ? 0.82 : 0.85
+    const fitScale = Math.min((availW * marginFactor) / imgW, (availH * marginFactor) / imgH, 1.8)
     const initialX = Math.round((availW - imgW * fitScale) / 2)
     const initialY = Math.round((availH - imgH * fitScale) / 2)
 
@@ -282,7 +283,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     setPan({ x: initialX, y: initialY })
   }, [])
 
-  // Clamp Pan: keeps image centered when at/below fit scale, and bounds panning when zoomed in
+  // Clamp Pan: ensures generous studio breathing room around the artwork at all zoom levels
   const clampPan = useCallback((targetX: number, targetY: number, currentZoom: number) => {
     if (!viewportRef.current || !baseImage) return { x: targetX, y: targetY }
     const rect = viewportRef.current.getBoundingClientRect()
@@ -292,22 +293,31 @@ export const EditorView: React.FC<EditorViewProps> = ({
     const renderedW = w * currentZoom
     const renderedH = h * currentZoom
 
-    let finalX = targetX
-    let finalY = targetY
+    // Studio free space margin: at least 48px on mobile, up to 80px on desktop
+    // This guarantees the artwork NEVER touches the screen edge and always has breathing room
+    const paddingX = Math.round(Math.min(80, Math.max(48, rect.width * 0.12)))
+    const paddingY = Math.round(Math.min(80, Math.max(48, rect.height * 0.12)))
 
-    if (renderedW <= rect.width) {
+    let finalX: number
+    // If the rendered image is smaller than the padded viewport, center it horizontally
+    if (renderedW <= rect.width - 2 * paddingX) {
       finalX = Math.round((rect.width - renderedW) / 2)
     } else {
-      const minX = rect.width - renderedW
-      const maxX = 0
+      // When zoomed in, allow overscroll so any edge or corner can be viewed with generous free space:
+      // Left edge can be panned inward up to paddingX or up to 35% of viewport width
+      // Right edge can be panned inward up to rect.width - paddingX
+      const maxX = Math.max(paddingX, Math.round(rect.width * 0.35))
+      const minX = Math.min(rect.width - paddingX - renderedW, Math.round(rect.width * 0.65) - renderedW)
       finalX = Math.max(minX, Math.min(maxX, targetX))
     }
 
-    if (renderedH <= rect.height) {
+    let finalY: number
+    // If the rendered image is smaller than the padded viewport, center it vertically
+    if (renderedH <= rect.height - 2 * paddingY) {
       finalY = Math.round((rect.height - renderedH) / 2)
     } else {
-      const minY = rect.height - renderedH
-      const maxY = 0
+      const maxY = Math.max(paddingY, Math.round(rect.height * 0.35))
+      const minY = Math.min(rect.height - paddingY - renderedH, Math.round(rect.height * 0.65) - renderedH)
       finalY = Math.max(minY, Math.min(maxY, targetY))
     }
 
