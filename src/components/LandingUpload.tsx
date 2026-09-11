@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Upload, Camera, Loader2 } from 'lucide-react'
+import { Upload, Camera, Loader2, Share2 } from 'lucide-react'
 import { CameraCaptureModal } from './CameraCaptureModal'
 import { ArtworkHistoryCarousel } from './ArtworkHistoryCarousel'
+import { SocialAutomationsModal } from './SocialAutomationsModal'
 import { getArtworkHistory, deleteArtworkFromHistory, clearArtworkHistory, HistoryArtwork } from '../lib/history-storage'
 import { loadAnyImageFile } from '../lib/image-loader'
+import { loadSocialConfig, getConnectedPlatformsCount } from '../lib/social-automation'
 import { LightroomAdjustments, ArtworkInfo, ImageQueueItem } from '../types'
 
 interface LandingUploadProps {
@@ -21,6 +23,8 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [showCameraModal, setShowCameraModal] = useState(false)
+  const [showSocialModal, setShowSocialModal] = useState(false)
+  const [connectedCount, setConnectedCount] = useState(0)
   const [historyItems, setHistoryItems] = useState<HistoryArtwork[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -33,6 +37,8 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
 
   useEffect(() => {
     loadHistory()
+    const cfg = loadSocialConfig()
+    setConnectedCount(getConnectedPlatformsCount(cfg))
   }, [])
 
   const handleDeleteHistoryItem = async (id: string) => {
@@ -163,6 +169,27 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
         className="hidden"
       />
 
+      {/* Top Header: Branding and Social Automations Toggle */}
+      <header className="w-full flex items-center justify-between py-1 shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-normal tracking-widest uppercase text-[#565051]">ARTEI STUDIO</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowSocialModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white text-xs font-normal text-[#0f0b0c] transition-colors cursor-pointer shadow-xs"
+          title="Настройка интеграций (соцсети и Google Диск)"
+        >
+          <Share2 className="w-3.5 h-3.5 text-[#565051]" />
+          <span>Подключения</span>
+          {connectedCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-[#0f0b0c] text-white text-[10px] flex items-center justify-center font-mono ml-0.5">
+              {connectedCount}
+            </span>
+          )}
+        </button>
+      </header>
+
       {/* Main Upload Dropzone Area (Zero vertical scroll, strictly fits 100dvh) */}
       <main className="flex-1 min-h-0 flex flex-col justify-center items-center max-w-2xl w-full mx-auto my-auto py-1 gap-2.5">
         <div
@@ -232,6 +259,15 @@ export const LandingUpload: React.FC<LandingUploadProps> = ({ onImageSelect, onI
         isOpen={showCameraModal}
         onClose={() => setShowCameraModal(false)}
         onCapture={onImageSelect}
+      />
+
+      {/* Social Automations Configuration Modal */}
+      <SocialAutomationsModal
+        isOpen={showSocialModal}
+        onClose={() => {
+          setShowSocialModal(false)
+          setConnectedCount(getConnectedPlatformsCount(loadSocialConfig()))
+        }}
       />
     </div>
   )

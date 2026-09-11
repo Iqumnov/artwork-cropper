@@ -2,6 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { requestPersistentStorage } from './lib/storage-priority'
+
+// Request persistent browser storage to prevent eviction of tokens and credentials
+requestPersistentStorage()
 
 // Register Service Worker for full PWA support (in production only to avoid Vite dev conflicts)
 if ('serviceWorker' in navigator) {

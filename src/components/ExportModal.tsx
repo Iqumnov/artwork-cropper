@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
+import { X, Download, Copy, Check, RotateCcw, LayoutTemplate, ChevronLeft, ChevronRight, ChevronDown, Loader2, Share2, WifiOff, HardDrive } from 'lucide-react'
 import { ArtworkInfo } from '../types'
+import { loadSocialConfig, isAnySocialConnected, executeSocialPublish, SocialConfig, isGoogleDriveConnected, uploadArtworkToGoogleDrive } from '../lib/social-automation'
+import { extractArtworkDetails } from '../lib/detail-crop-engine'
+import { queueOfflinePost } from '../lib/offline-queue'
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result as string)
+    reader.readAsDataURL(blob)
+  })
+}
 
 interface ExportModalProps {
   isOpen: boolean
@@ -142,8 +153,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [quality, setQuality] = useState(1.0)
   const [copied, setCopied] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isPosting, setIsPosting] = useState(false)
+  const [postingStatus, setPostingStatus] = useState<string>('')
   const [estimatedSize, setEstimatedSize] = useState<string>('')
   const [isExportAsPost, setIsExportAsPost] = useState(false)
+  const [isAutoPost, setIsAutoPost] = useState(false)
+  const [socialConfig, setSocialConfig] = useState<SocialConfig>(() => loadSocialConfig())
+  const [offlinePrompt, setOfflinePrompt] = useState<{
+    isOpen: boolean
+    pendingData?: { blob: Blob; detail1Blob?: Blob; detail2Blob?: Blob }
+  } | null>(null)
+
+  const [isDriveSaving, setIsDriveSaving] = useState(false)
+  const [driveStatus, setDriveStatus] = useState<string>('')
+  const [driveSuccess, setDriveSuccess] = useState(false)
+
+  const hasConnectedSocials = useMemo(() => isAnySocialConnected(socialConfig), [socialConfig])
+  const isDriveConnected = useMemo(() => isGoogleDriveConnected(socialConfig), [socialConfig])
 
   // Local editable artwork fields
   const [localInfo, setLocalInfo] = useState<ArtworkInfo>(() => ({
@@ -155,14 +181,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }))
 
   useEffect(() => {
-    if (isOpen && artworkInfo) {
-      setLocalInfo({
-        title: artworkInfo.title || artworkTitle || '',
-        artist: artworkInfo.artist || '',
-        medium: artworkInfo.medium || '',
-        dimensions: artworkInfo.dimensions || '',
-        year: artworkInfo.year || ''
-      })
+    if (isOpen) {
+      const cfg = loadSocialConfig()
+      setSocialConfig(cfg)
+      setIsAutoPost(false)
+      setIsPosting(false)
+      setPostingStatus('')
+      setOfflinePrompt(null)
+      setIsDriveSaving(false)
+      setDriveStatus('')
+      setDriveSuccess(false)
+      if (artworkInfo) {
+        setLocalInfo({
+          title: artworkInfo.title || artworkTitle || '',
+          artist: artworkInfo.artist || '',
+          medium: artworkInfo.medium || '',
+          dimensions: artworkInfo.dimensions || '',
+          year: artworkInfo.year || ''
+        })
+      }
     }
   }, [isOpen, artworkInfo, artworkTitle])
 
@@ -262,14 +299,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
 
   const handleDownload = () => {
-    if (!activeCanvas || isExporting) return
+    if (!activeCanvas || isExporting || isPosting) return
     setIsExporting(true)
     const fallbackName = generateMetadataFileName(localInfo)
     const baseName = fileName.trim() || fallbackName
     const safeName = baseName.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim()
 
     activeCanvas.toBlob(
-      (blob) => {
+      async (blob) => {
         if (!blob) {
           setIsExporting(false)
           return
@@ -282,6 +319,69 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
+
+        // If AutoPost is toggled ON, extract details and publish to social networks
+        if (isAutoPost && isExportAsPost && canvas) {
+          setIsPosting(true)
+          setPostingStatus('Создание макро-деталей 3:4...')
+
+          // If offline upfront: prompt user immediately to queue or cancel
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            try {
+              const { detail1Blob, detail2Blob } = await extractArtworkDetails(canvas)
+              setOfflinePrompt({
+                isOpen: true,
+                pendingData: { blob, detail1Blob, detail2Blob },
+              })
+            } catch (e: any) {
+              setPostingStatus(`Ошибка создания деталей: ${e.message}`)
+            }
+            setIsPosting(false)
+            setIsExporting(false)
+            return
+          }
+
+          try {
+            const { detail1Blob, detail2Blob } = await extractArtworkDetails(canvas)
+            setPostingStatus('Публикация в соцсети...')
+            const res = await executeSocialPublish(
+              socialConfig,
+              blob,
+              detail1Blob,
+              detail2Blob,
+              localInfo
+            )
+            if (res.success) {
+              setPostingStatus('Опубликовано во все соцсети!')
+              setTimeout(() => {
+                setIsPosting(false)
+                setIsExporting(false)
+                if (onExportComplete) onExportComplete()
+                onClose()
+              }, 1200)
+              return
+            } else if (res.isOffline) {
+              setOfflinePrompt({
+                isOpen: true,
+                pendingData: { blob, detail1Blob, detail2Blob },
+              })
+              setIsPosting(false)
+              setIsExporting(false)
+              return
+            } else {
+              setPostingStatus(res.messages.join('; '))
+              setIsPosting(false)
+              setIsExporting(false)
+              return
+            }
+          } catch (e: any) {
+            setPostingStatus(`Ошибка публикации: ${e.message}`)
+            setIsPosting(false)
+            setIsExporting(false)
+            return
+          }
+        }
+
         setIsExporting(false)
         if (onExportComplete) onExportComplete()
         onClose()
@@ -312,6 +412,50 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     } catch (e) {
       console.error('Copy to clipboard failed:', e)
     }
+  }
+
+  const handleSaveToGoogleDrive = () => {
+    if (!activeCanvas || isExporting || isPosting || isDriveSaving) return
+    setIsDriveSaving(true)
+    setDriveStatus('Подготовка и сохранение на Google Диск...')
+    setDriveSuccess(false)
+
+    const fallbackName = generateMetadataFileName(localInfo)
+    const baseName = fileName.trim() || fallbackName
+    const safeName = baseName.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim()
+    const fullFileName = `${safeName}.${ext}`
+
+    activeCanvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          setIsDriveSaving(false)
+          setDriveStatus('Ошибка формирования изображения')
+          return
+        }
+
+        try {
+          const res = await uploadArtworkToGoogleDrive(socialConfig, blob, fullFileName, localInfo)
+          if (res.success) {
+            setDriveSuccess(true)
+            setDriveStatus(`Сохранено на Google Диск (папка: ${res.artistFolder || 'Без автора'})`)
+            setTimeout(() => {
+              setDriveStatus('')
+              setDriveSuccess(false)
+            }, 4500)
+          } else {
+            setDriveStatus(`Ошибка Диска: ${res.error || 'Сбой отправки'}`)
+            setTimeout(() => setDriveStatus(''), 5500)
+          }
+        } catch (err: any) {
+          setDriveStatus(`Ошибка: ${err?.message || 'Не удалось сохранить'}`)
+          setTimeout(() => setDriveStatus(''), 5500)
+        } finally {
+          setIsDriveSaving(false)
+        }
+      },
+      format,
+      quality
+    )
   }
 
   return (
@@ -386,9 +530,37 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </button>
         </div>
 
+        {/* Tumbler: "Запостить" (Appears when post tumbler is ON and social networks are connected) */}
+        {isExportAsPost && hasConnectedSocials && (
+          <div className="flex items-center justify-between p-2.5 bg-white border border-[#e3dbdc] hover:border-[#34292a] transition-colors">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-[#0f0b0c]" />
+              <div className="flex flex-col">
+                <span className="text-xs font-normal text-[#0f0b0c]">Запостить</span>
+                <span className="text-[11px] text-[#565051]">
+                  Опубликовать карточку и 2 макро-детали во все подключенные соцсети
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAutoPost(!isAutoPost)}
+              className={`w-10 h-5 border transition-colors flex items-center px-0.5 cursor-pointer ${
+                isAutoPost ? 'bg-[#0f0b0c] border-[#0f0b0c]' : 'bg-[#e3dbdc] border-[#e3dbdc]'
+              }`}
+            >
+              <div
+                className={`w-3.5 h-3.5 bg-white transition-transform ${
+                  isAutoPost ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         {/* Artwork Metadata Fields (Visible when Export as Post is active) */}
         {isExportAsPost && (
-          <div className="flex flex-col gap-2 p-3 bg-white border border-[#e3dbdc]">
+          <div className="flex flex-col gap-2 p-3 bg-white">
             <span className="text-xs font-normal uppercase tracking-wider text-[#565051]">
               Данные для карточки поста
             </span>
@@ -539,15 +711,36 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-1">
+          {postingStatus && (
+            <p className="text-xs text-center text-[#565051] m-0 font-normal">
+              {postingStatus}
+            </p>
+          )}
+          {driveStatus && (
+            <p className={`text-xs text-center m-0 font-normal ${driveSuccess ? 'text-emerald-700 font-medium' : 'text-[#565051]'}`}>
+              {driveStatus}
+            </p>
+          )}
+
           <button
             onClick={handleDownload}
-            disabled={isExporting}
+            disabled={isExporting || isPosting || isDriveSaving}
             className="w-full py-2.5 bg-[#0f0b0c] hover:bg-[#34292a] disabled:bg-[#34292a]/80 border border-[#0f0b0c] hover:border-[#34292a] text-[#faf8f8] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            {isExporting ? (
+            {isPosting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>{postingStatus || 'Публикация в соцсети...'}</span>
+              </>
+            ) : isExporting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
                 <span>Сохранение файла...</span>
+              </>
+            ) : isAutoPost ? (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span>Скачать и запостить</span>
               </>
             ) : (
               <>
@@ -557,9 +750,40 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             )}
           </button>
 
+          {/* Google Drive Save button: only in standard image export mode, not in post mode, and when Google Drive is connected */}
+          {!isExportAsPost && isDriveConnected && (
+            <button
+              onClick={handleSaveToGoogleDrive}
+              disabled={isExporting || isPosting || isDriveSaving}
+              className={`w-full py-2.5 border text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed ${
+                driveSuccess
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-white hover:bg-[#f3eff0] border-[#0f0b0c] text-[#0f0b0c]'
+              }`}
+            >
+              {isDriveSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#0f0b0c]" />
+                  <span>Сохранение на Google Диск...</span>
+                </>
+              ) : driveSuccess ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-700" />
+                  <span>Сохранено на Google Диск!</span>
+                </>
+              ) : (
+                <>
+                  <HardDrive className="w-4 h-4 text-[#0f0b0c]" />
+                  <span>Сохранить на Google Диск</span>
+                </>
+              )}
+            </button>
+          )}
+
           <button
             onClick={handleCopyToClipboard}
-            className="w-full py-2 bg-white hover:bg-[#faf8f8] border border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            disabled={isExporting || isPosting || isDriveSaving}
+            className="w-full py-2 bg-white hover:bg-[#faf8f8] disabled:bg-[#f3eff0] border border-[#e3dbdc] hover:border-[#34292a] text-[#0f0b0c] text-xs font-normal flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             {copied ? (
               <>
@@ -574,6 +798,74 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             )}
           </button>
         </div>
+
+        {/* Offline Publish Prompt Dialog */}
+        {offlinePrompt?.isOpen && (
+          <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#faf8f8] border border-[#e3dbdc] p-5 max-w-sm w-full shadow-2xl flex flex-col gap-3 text-[#0f0b0c]">
+              <div className="flex items-center gap-2">
+                <WifiOff className="w-4 h-4 text-amber-600" />
+                <h4 className="text-sm font-normal m-0 text-[#0f0b0c]">
+                  Нет интернет-соединения
+                </h4>
+              </div>
+              <p className="text-xs text-[#565051] leading-relaxed m-0">
+                Файл успешно сохранен на ваше устройство. Хотите опубликовать пост в соцсети автоматически при восстановлении подключения к интернету?
+              </p>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!offlinePrompt?.pendingData) {
+                      setOfflinePrompt(null)
+                      return
+                    }
+                    const { blob, detail1Blob, detail2Blob } = offlinePrompt.pendingData
+                    try {
+                      const mainDataUrl = await blobToDataUrl(blob)
+                      const detail1DataUrl = detail1Blob ? await blobToDataUrl(detail1Blob) : undefined
+                      const detail2DataUrl = detail2Blob ? await blobToDataUrl(detail2Blob) : undefined
+
+                      await queueOfflinePost({
+                        id: `offline_post_${Date.now()}`,
+                        timestamp: Date.now(),
+                        info: localInfo,
+                        mainDataUrl,
+                        detail1DataUrl,
+                        detail2DataUrl,
+                        config: socialConfig,
+                      })
+
+                      setPostingStatus('Сохранено в очередь! Опубликуется при появлении сети.')
+                      setTimeout(() => {
+                        setOfflinePrompt(null)
+                        if (onExportComplete) onExportComplete()
+                        onClose()
+                      }, 1400)
+                    } catch (e: any) {
+                      setPostingStatus(`Ошибка сохранения в очередь: ${e.message}`)
+                      setOfflinePrompt(null)
+                    }
+                  }}
+                  className="w-full py-2 bg-[#0f0b0c] hover:bg-[#34292a] text-[#faf8f8] text-xs font-normal transition-colors cursor-pointer"
+                >
+                  Опубликовать при появлении сети
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOfflinePrompt(null)
+                    if (onExportComplete) onExportComplete()
+                    onClose()
+                  }}
+                  className="w-full py-1.5 border border-[#e3dbdc] hover:border-[#34292a] bg-white text-[#565051] hover:text-[#0f0b0c] text-xs font-normal transition-colors cursor-pointer"
+                >
+                  Отмена публикации
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

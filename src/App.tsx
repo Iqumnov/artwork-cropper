@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Check } from 'lucide-react'
 import { LandingUpload } from './components/LandingUpload'
 import { EditorView } from './components/EditorView'
 import { LightroomAdjustments, EditorTab, ScanPoint, CropArea, ArtworkInfo, ImageQueueItem } from './types'
 import { getEditorSession, clearEditorSession, EditorSessionData } from './lib/history-storage'
 import { loadAnyImageFile } from './lib/image-loader'
+import { initOfflineQueueListener } from './lib/offline-queue'
 
 export function App() {
   const [imageQueue, setImageQueue] = useState<ImageQueueItem[]>([])
@@ -14,10 +16,18 @@ export function App() {
   const [selectedArtworkId, setSelectedArtworkId] = useState<string | undefined>(undefined)
   const [selectedFileName, setSelectedFileName] = useState<string | undefined>(undefined)
   const [selectedArtworkInfo, setSelectedArtworkInfo] = useState<ArtworkInfo | undefined>(undefined)
+  const [offlinePublishedToast, setOfflinePublishedToast] = useState<string | null>(null)
 
   // Restored Session Properties
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
+
+  useEffect(() => {
+    initOfflineQueueListener((count) => {
+      setOfflinePublishedToast(`Интернет восстановлен: опубликовано ${count} пост(ов)!`)
+      setTimeout(() => setOfflinePublishedToast(null), 4000)
+    })
+  }, [])
 
   useEffect(() => {
     async function restoreSession() {
@@ -177,6 +187,13 @@ export function App() {
         />
       ) : (
         <LandingUpload onImageSelect={handleSelect} onImagesSelect={handleBatchSelect} />
+      )}
+
+      {offlinePublishedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-2 bg-[#0f0b0c] text-[#faf8f8] border border-[#34292a] text-xs font-normal shadow-2xl flex items-center gap-2 animate-fade-in pointer-events-none">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{offlinePublishedToast}</span>
+        </div>
       )}
     </div>
   )

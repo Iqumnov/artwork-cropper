@@ -1,4 +1,5 @@
 import { LightroomAdjustments, ArtworkInfo } from '../types'
+import { safeSetItem, safeGetItem, safeRemoveItem, StorageTier } from './storage-priority'
 
 export interface HistoryArtwork {
   id: string
@@ -70,13 +71,20 @@ export async function saveArtworkToHistory(artwork: HistoryArtwork): Promise<voi
       tx.onerror = () => rej(tx.error)
     })
   } catch (e) {
-    console.warn('IndexedDB save failed, attempting localStorage fallback:', e)
+    console.warn('IndexedDB save failed, attempting safe volatile localStorage fallback:', e)
     try {
-      const raw = localStorage.getItem('artei_artwork_history') || '[]'
+      const raw = safeGetItem('artei_artwork_history') || '[]'
       const list: HistoryArtwork[] = JSON.parse(raw)
       const filtered = list.filter(item => item.id !== artwork.id)
-      filtered.unshift(artwork)
-      localStorage.setItem('artei_artwork_history', JSON.stringify(filtered.slice(0, 10)))
+      
+      // For localStorage fallback, avoid saving multi-megabyte base64 strings
+      // to keep quota free for Tier 1 configurations
+      const safeArtwork: HistoryArtwork = {
+        ...artwork,
+        dataUrl: artwork.dataUrl.length > 50000 ? '' : artwork.dataUrl,
+      }
+      filtered.unshift(safeArtwork)
+      safeSetItem('artei_artwork_history', JSON.stringify(filtered.slice(0, 5)), StorageTier.TIER_3_VOLATILE)
     } catch {}
   }
 }
@@ -98,7 +106,7 @@ export async function getArtworkHistory(): Promise<HistoryArtwork[]> {
     })
   } catch (e) {
     try {
-      const raw = localStorage.getItem('artei_artwork_history') || '[]'
+      const raw = safeGetItem('artei_artwork_history') || '[]'
       return JSON.parse(raw)
     } catch {
       return []
@@ -118,9 +126,9 @@ export async function deleteArtworkFromHistory(id: string): Promise<void> {
     })
   } catch (e) {
     try {
-      const raw = localStorage.getItem('artei_artwork_history') || '[]'
+      const raw = safeGetItem('artei_artwork_history') || '[]'
       const list: HistoryArtwork[] = JSON.parse(raw)
-      localStorage.setItem('artei_artwork_history', JSON.stringify(list.filter(i => i.id !== id)))
+      safeSetItem('artei_artwork_history', JSON.stringify(list.filter(i => i.id !== id)), StorageTier.TIER_3_VOLATILE)
     } catch {}
   }
 }
@@ -136,7 +144,7 @@ export async function clearArtworkHistory(): Promise<void> {
       tx.onerror = () => rej(tx.error)
     })
   } catch (e) {
-    localStorage.removeItem('artei_artwork_history')
+    safeRemoveItem('artei_artwork_history')
   }
 }
 
@@ -157,7 +165,13 @@ export async function saveEditorSession(session: Omit<EditorSessionData, 'id' | 
     })
   } catch (e) {
     try {
-      localStorage.setItem('artei_active_session', JSON.stringify(data))
+      // Don't store large image payloads in localStorage fallback to protect Tier 1 credentials
+      const safeData = {
+        ...data,
+        imageUrl: data.imageUrl.length > 50000 ? '' : data.imageUrl,
+        originalUrl: data.originalUrl && data.originalUrl.length > 50000 ? '' : data.originalUrl,
+      }
+      safeSetItem('artei_active_session', JSON.stringify(safeData), StorageTier.TIER_3_VOLATILE)
     } catch {}
   }
 }
@@ -174,7 +188,7 @@ export async function getEditorSession(): Promise<EditorSessionData | null> {
     })
   } catch (e) {
     try {
-      const raw = localStorage.getItem('artei_active_session')
+      const raw = safeGetItem('artei_active_session')
       return raw ? JSON.parse(raw) : null
     } catch {
       return null
@@ -193,6 +207,6 @@ export async function clearEditorSession(): Promise<void> {
       tx.onerror = () => rej(tx.error)
     })
   } catch (e) {
-    localStorage.removeItem('artei_active_session')
+    safeRemoveItem('artei_active_session')
   }
 }

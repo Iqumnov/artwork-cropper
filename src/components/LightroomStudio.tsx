@@ -24,6 +24,7 @@ import {
   AspectRatio,
   ASPECT_RATIOS
 } from '../types'
+import { safeSetItem, safeGetItem, StorageTier } from '../lib/storage-priority'
 import { DEFAULT_HSL_CHANNELS, LIGHTROOM_PRESETS } from '../lib/presets'
 import { getPresetNatureThumbnail } from '../lib/preset-thumbnails'
 import { ToneCurveEditor } from './ToneCurveEditor'
@@ -94,7 +95,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
   const [selectedCurveChannel, setSelectedCurveChannel] = useState<'rgb' | 'red' | 'green' | 'blue'>('rgb')
   const [customPresets, setCustomPresets] = useState<Preset[]>(() => {
     try {
-      const stored = localStorage.getItem('artei_custom_presets')
+      const stored = safeGetItem('artei_custom_presets')
       return stored ? JSON.parse(stored) : []
     } catch {
       return []
@@ -215,7 +216,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
     const updated = [newPreset, ...customPresets]
     setCustomPresets(updated)
     try {
-      localStorage.setItem('artei_custom_presets', JSON.stringify(updated))
+      safeSetItem('artei_custom_presets', JSON.stringify(updated), StorageTier.TIER_2_USER_ASSETS)
     } catch {}
     setNewPresetName('')
     setIsSavingPreset(false)
@@ -226,7 +227,7 @@ export const LightroomStudio: React.FC<LightroomStudioProps> = React.memo(({
     const updated = customPresets.filter(p => p.id !== id)
     setCustomPresets(updated)
     try {
-      localStorage.setItem('artei_custom_presets', JSON.stringify(updated))
+      safeSetItem('artei_custom_presets', JSON.stringify(updated), StorageTier.TIER_2_USER_ASSETS)
     } catch {}
   }
 
